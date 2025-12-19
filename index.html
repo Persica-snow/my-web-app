@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Christmas Tree | Interactive Particle System</title>
+    <title>圣诞树 | 互动粒子系统</title>
     
     <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,73 +27,73 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Loader -->
+    <!-- 加载器 -->
     <div class="loader" id="loader">
         <div class="spinner"></div>
-        <div class="loader-text">LOADING HOLIDAY MAGIC</div>
+        <div class="loader-text">正在加载节日魔法</div>
     </div>
 
-    <!-- Performance Warning -->
+    <!-- 性能提示 -->
     <div class="performance-warning" id="performanceWarning">
-        <div style="font-size: 18px; margin-bottom: 10px; color: #d4af37;">⚠️ Performance Notice</div>
-        <div>Your device may experience reduced performance. We recommend:</div>
+        <div style="font-size: 18px; margin-bottom: 10px; color: #d4af37;">⚠️ 性能提示</div>
+        <div>您的设备可能出现性能下降，建议您：</div>
         <div style="margin-top: 10px;">
-            1. Close other apps<br>
-            2. Use in portrait mode<br>
-            3. Keep device cool
+            1. 关闭其他应用<br>
+            2. 使用竖屏模式<br>
+            3. 保持设备凉爽
         </div>
-        <button id="continueBtn">Continue</button>
+        <button id="continueBtn">继续</button>
     </div>
 
-    <!-- UI Container -->
+    <!-- 界面容器 -->
     <div class="ui-container" id="uiContainer">
         <header>
-            <h1>Merry Christmas</h1>
+            <h1>圣诞快乐</h1>
         </header>
 
-        <!-- Instructions -->
+        <!-- 操作说明 -->
         <div class="instructions">
-            <p id="desktopInstruction">Interact with gestures: Pinch to focus, Fist for tree, Open hand to scatter</p>
-            <p id="mobileInstruction" style="display: none;">Touch and drag to rotate • Two-finger pinch for focus • Tap to switch modes</p>
+            <p id="desktopInstruction">手势互动：捏合聚焦，握拳生成树，张开手掌散射粒子</p>
+            <p id="mobileInstruction" style="display: none;">单指拖动旋转 · 双指捏合聚焦 · 点击切换模式</p>
             <div class="gesture-hint">
                 <div class="gesture-item">
                     <div class="gesture-icon">✌️</div>
-                    <div class="gesture-text">Pinch to Focus</div>
+                    <div class="gesture-text">捏合聚焦</div>
                 </div>
                 <div class="gesture-item">
                     <div class="gesture-icon">✊</div>
-                    <div class="gesture-text">Fist for Tree</div>
+                    <div class="gesture-text">握拳生成树</div>
                 </div>
                 <div class="gesture-item">
                     <div class="gesture-icon">✋</div>
-                    <div class="gesture-text">Open to Scatter</div>
+                    <div class="gesture-text">张开散射</div>
                 </div>
             </div>
         </div>
 
-        <!-- Mode Indicator -->
+        <!-- 模式指示器 -->
         <div class="mode-indicator">
-            <div class="mode-text" id="modeText">TREE MODE</div>
-            <div class="mode-subtext" id="modeSubtext">Particles arranged as a tree</div>
+            <div class="mode-text" id="modeText">圣诞树模式</div>
+            <div class="mode-subtext" id="modeSubtext">粒子排列为圣诞树形状</div>
         </div>
 
-        <!-- Upload Controls -->
+        <!-- 上传控件 -->
         <div class="upload-wrapper">
-            <button class="upload-btn" id="uploadBtn">ADD MEMORIES</button>
-            <div class="hint-text">Double-tap to Hide Controls</div>
+            <button class="upload-btn" id="uploadBtn">添加回忆照片</button>
+            <div class="hint-text">双击隐藏控制面板</div>
         </div>
     </div>
 
-    <!-- Webcam Container -->
+    <!-- 摄像头容器 -->
     <div class="webcam-container">
         <video id="webcam" autoplay playsinline></video>
         <canvas id="outputCanvas"></canvas>
     </div>
 
-    <!-- Hidden File Input -->
+    <!-- 隐藏的文件输入 -->
     <input type="file" id="fileInput" accept="image/*" style="display: none;">
 
-    <!-- Three.js Canvas -->
+    <!-- Three.js 画布 -->
     <canvas id="canvas3d"></canvas>
 
     <!-- JavaScript -->
