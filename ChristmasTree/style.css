@@ -1,0 +1,474 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Times New Roman', serif;
+    background: #000000;
+    color: #fceea7;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    touch-action: none;
+}
+
+/* =========== Loader Styles =========== */
+.loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 1s ease;
+}
+
+.loader.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(212, 175, 55, 0.2);
+    border-radius: 50%;
+    border-top: 4px solid #d4af37;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loader-text {
+    font-size: 18px;
+    color: #d4af37;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 0 20px;
+}
+
+/* =========== UI Container =========== */
+.ui-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    transition: opacity 0.5s ease;
+    padding: 15px;
+}
+
+.ui-container.ui-hidden {
+    opacity: 0;
+}
+
+/* =========== Header =========== */
+header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 30px;
+    pointer-events: none;
+}
+
+h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 56px;
+    background: linear-gradient(to bottom, #fceea7, #d4af37);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+    text-align: center;
+    padding: 0 15px;
+}
+
+/* =========== Upload Controls =========== */
+.upload-wrapper {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+    width: 90%;
+    max-width: 500px;
+}
+
+.upload-btn {
+    background: rgba(212, 175, 55, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid #d4af37;
+    color: #fceea7;
+    padding: 15px 30px;
+    font-size: 18px;
+    font-family: 'Cinzel', serif;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+    width: 100%;
+}
+
+.upload-btn:hover {
+    background: rgba(212, 175, 55, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+}
+
+.hint-text {
+    font-size: 16px;
+    color: #d4af37;
+    opacity: 0.8;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+/* =========== Webcam Container =========== */
+.webcam-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 160px;
+    height: 120px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.webcam-container video,
+.webcam-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+}
+
+/* =========== Canvas =========== */
+#canvas3d {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    touch-action: none;
+}
+
+/* =========== Instructions =========== */
+.instructions {
+    position: absolute;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 80%;
+    max-width: 800px;
+    pointer-events: none;
+}
+
+.instructions p {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #d4af37;
+    line-height: 1.4;
+}
+
+.gesture-hint {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.gesture-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 100px;
+}
+
+.gesture-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(212, 175, 55, 0.1);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 24px;
+}
+
+.gesture-text {
+    font-size: 14px;
+    color: #fceea7;
+    text-align: center;
+}
+
+/* =========== Mode Indicator =========== */
+.mode-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border-left: 4px solid #d4af37;
+    pointer-events: none;
+    backdrop-filter: blur(5px);
+}
+
+.mode-text {
+    font-size: 16px;
+    color: #fceea7;
+    font-family: 'Cinzel', serif;
+}
+
+.mode-subtext {
+    font-size: 14px;
+    color: #d4af37;
+}
+
+/* =========== Touch Hint =========== */
+.touch-hint {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fceea7;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    text-align: center;
+    z-index: 100;
+    max-width: 90%;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.touch-hint div {
+    margin: 5px 0;
+}
+
+/* =========== Performance Warning =========== */
+.performance-warning {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.95);
+    color: #fceea7;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #d4af37;
+    text-align: center;
+    z-index: 1001;
+    max-width: 90%;
+    backdrop-filter: blur(10px);
+}
+
+.performance-warning button {
+    background: #d4af37;
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border-radius: 5px;
+    font-family: 'Cinzel', serif;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* ==================== Mobile Responsive ==================== */
+@media screen and (max-width: 768px) {
+    body {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    h1 {
+        font-size: 32px !important;
+        padding: 0 10px;
+        margin-top: 10px;
+    }
+    
+    .instructions {
+        top: 80px;
+        width: 95%;
+    }
+    
+    .instructions p {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+    
+    .gesture-hint {
+        gap: 15px;
+    }
+    
+    .gesture-item {
+        width: 30%;
+        min-width: auto;
+    }
+    
+    .gesture-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .gesture-text {
+        font-size: 12px;
+    }
+    
+    .upload-wrapper {
+        bottom: 70px;
+        width: 95%;
+    }
+    
+    .upload-btn {
+        padding: 12px 20px;
+        font-size: 16px;
+    }
+    
+    .hint-text {
+        font-size: 14px;
+    }
+    
+    .mode-indicator {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        padding: 8px 12px;
+        text-align: center;
+    }
+    
+    .mode-text {
+        font-size: 14px;
+    }
+    
+    .mode-subtext {
+        font-size: 12px;
+    }
+    
+    .loader-text {
+        font-size: 16px;
+    }
+    
+    .webcam-container {
+        width: 120px;
+        height: 90px;
+        bottom: 10px;
+        right: 10px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    h1 {
+        font-size: 28px !important;
+        margin-bottom: 5px;
+    }
+    
+    .gesture-hint {
+        gap: 10px;
+    }
+    
+    .gesture-item {
+        width: 45%;
+    }
+    
+    .upload-wrapper {
+        bottom: 60px;
+    }
+    
+    .upload-btn {
+        padding: 10px 15px;
+        font-size: 15px;
+    }
+    
+    .touch-hint {
+        bottom: 100px;
+        font-size: 13px;
+        padding: 10px 15px;
+    }
+}
+
+@media screen and (orientation: landscape) and (max-height: 600px) {
+    h1 {
+        font-size: 24px !important;
+        margin-bottom: 5px;
+        padding-top: 5px;
+    }
+    
+    .instructions {
+        top: 60px;
+    }
+    
+    .instructions p {
+        font-size: 12px;
+    }
+    
+    .gesture-hint {
+        display: none;
+    }
+    
+    .upload-wrapper {
+        bottom: 50px;
+        width: 80%;
+    }
+    
+    .mode-indicator {
+        top: 5px;
+        padding: 6px 10px;
+    }
+    
+    .mode-text {
+        font-size: 13px;
+    }
+    
+    .mode-subtext {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 768px) and (orientation: portrait) {
+    .loader-text {
+        font-size: 16px;
+        line-height: 1.4;
+    }
+    
+    .upload-wrapper {
+        bottom: 80px;
+    }
+}
+
+/* Low performance device warning */
+@media screen and (max-width: 320px) {
+    .performance-warning {
+        display: block;
+    }
+}
