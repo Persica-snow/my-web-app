@@ -12,6 +12,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     
+    <!-- 使用本地Three.js库 -->
+    <script src="lib/three.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -211,6 +214,31 @@
             line-height: 1.4;
         }
 
+        /* 手势提示 */
+        .gesture-hint {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .gesture-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .gesture-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .gesture-text {
+            font-size: 14px;
+            color: #fceea7;
+        }
+
         /* Three.js画布 */
         #canvas3d {
             position: fixed;
@@ -235,6 +263,14 @@
             
             .instructions p {
                 font-size: 14px;
+            }
+            
+            .gesture-hint {
+                gap: 15px;
+            }
+            
+            .gesture-item {
+                width: 30%;
             }
             
             .upload-wrapper {
@@ -274,6 +310,14 @@
                 margin-bottom: 5px;
             }
             
+            .gesture-hint {
+                gap: 10px;
+            }
+            
+            .gesture-item {
+                width: 45%;
+            }
+            
             .upload-wrapper {
                 bottom: 60px;
             }
@@ -296,6 +340,10 @@
             
             .instructions p {
                 font-size: 12px;
+            }
+            
+            .gesture-hint {
+                display: none;
             }
             
             .upload-wrapper {
@@ -325,6 +373,20 @@
         <div class="instructions">
             <p id="desktopInstruction">按 H 键隐藏控制面板，空格键切换模式</p>
             <p id="mobileInstruction" style="display: none;">单指拖动旋转场景，双击隐藏控制面板</p>
+            <div class="gesture-hint" id="gestureHint">
+                <div class="gesture-item">
+                    <div class="gesture-icon">🎄</div>
+                    <div class="gesture-text">圣诞树模式</div>
+                </div>
+                <div class="gesture-item">
+                    <div class="gesture-icon">❄️</div>
+                    <div class="gesture-text">散落模式</div>
+                </div>
+                <div class="gesture-item">
+                    <div class="gesture-icon">📷</div>
+                    <div class="gesture-text">添加照片</div>
+                </div>
+            </div>
         </div>
 
         <!-- 模式指示器 -->
@@ -347,79 +409,47 @@
     <canvas id="canvas3d"></canvas>
 
     <script>
-        // =========== 加载管理器 ===========
-        class ResourceLoader {
-            constructor() {
-                this.loaded = false;
-                this.failed = false;
-                this.attempts = 0;
-                this.maxAttempts = 3;
-                this.cdnUrls = [
-                    'https://unpkg.com/three@0.160.0/build/three.min.js',
-                    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
-                    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js'
-                ];
-            }
+        // =========== Three.js本地加载检查 ===========
+        (function checkThreeJS() {
+            const loader = document.getElementById('loader');
+            const progressBar = document.querySelector('.progress-bar');
             
-            async load() {
-                return new Promise((resolve, reject) => {
-                    this.attemptLoad(resolve, reject);
-                });
-            }
-            
-            attemptLoad(resolve, reject) {
-                if (this.loaded) {
-                    resolve();
-                    return;
-                }
-                
-                if (this.attempts >= this.maxAttempts) {
-                    this.failed = true;
-                    reject(new Error('Three.js加载失败：所有CDN源都不可用'));
-                    return;
-                }
-                
-                const url = this.cdnUrls[this.attempts % this.cdnUrls.length];
-                console.log(`尝试从 ${url} 加载Three.js (尝试 ${this.attempts + 1}/${this.maxAttempts})`);
-                
-                this.updateLoaderProgress(30 * (this.attempts + 1));
-                
-                const script = document.createElement('script');
-                script.src = url;
-                script.crossOrigin = 'anonymous';
-                
-                script.onload = () => {
-                    console.log('Three.js加载成功');
-                    this.loaded = true;
-                    this.updateLoaderProgress(100);
-                    setTimeout(() => resolve(), 100);
-                };
-                
-                script.onerror = () => {
-                    console.warn(`从 ${url} 加载失败`);
-                    this.attempts++;
-                    document.head.removeChild(script);
-                    
-                    // 等待500ms后重试
+            // 检查Three.js是否已加载
+            function checkLibrary() {
+                if (typeof THREE !== 'undefined') {
+                    // Three.js加载成功
+                    console.log('✅ Three.js本地加载成功');
+                    progressBar.style.width = '100%';
                     setTimeout(() => {
-                        this.attemptLoad(resolve, reject);
+                        initApp();
                     }, 500);
-                };
-                
-                document.head.appendChild(script);
-            }
-            
-            updateLoaderProgress(percent) {
-                const progressBar = document.querySelector('.progress-bar');
-                if (progressBar) {
-                    progressBar.style.width = `${percent}%`;
+                    return true;
+                } else {
+                    // Three.js未加载
+                    console.error('❌ Three.js本地加载失败');
+                    return false;
                 }
             }
             
-            isLoaded() {
-                return this.loaded || typeof THREE !== 'undefined';
+            // 初始检查
+            if (!checkLibrary()) {
+                // 如果初始检查失败，尝试延迟检查（给浏览器时间加载）
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                const interval = setInterval(() => {
+                    attempts++;
+                    progressBar.style.width = `${attempts * 10}%`;
+                    
+                    if (checkLibrary()) {
+                        clearInterval(interval);
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        showLoadError('Three.js本地库加载失败，请检查lib/three.min.js文件是否存在');
+                    }
+                }, 300);
             }
-        }
+        })();
         
         // =========== 设备检测 ===========
         const deviceDetector = {
@@ -476,20 +506,20 @@
                 this.fileInput = document.getElementById('fileInput');
                 this.desktopInstruction = document.getElementById('desktopInstruction');
                 this.mobileInstruction = document.getElementById('mobileInstruction');
+                this.gestureHint = document.getElementById('gestureHint');
                 
                 // 根据设备显示不同的使用说明
                 if (this.isMobile) {
                     this.desktopInstruction.style.display = 'none';
                     this.mobileInstruction.style.display = 'block';
+                    this.gestureHint.style.display = 'flex';
                 }
             }
             
             async init() {
                 try {
                     // 检查WebGL支持
-                    const canvas = document.createElement('canvas');
-                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                    if (!gl) {
+                    if (!this.checkWebGL()) {
                         throw new Error('您的浏览器不支持WebGL');
                     }
                     
@@ -508,14 +538,26 @@
                     // 开始动画
                     this.animate();
                     
-                    // 3秒后隐藏加载器
+                    // 隐藏加载器
                     setTimeout(() => {
                         this.loader.classList.add('hidden');
-                    }, 3000);
+                    }, 1000);
+                    
+                    console.log('🎉 应用初始化成功！');
                     
                 } catch (error) {
                     console.error('初始化失败:', error);
-                    this.showError(error.message);
+                    showLoadError(error.message);
+                }
+            }
+            
+            checkWebGL() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                    return !!gl;
+                } catch (e) {
+                    return false;
                 }
             }
             
@@ -1089,77 +1131,13 @@
                 // 渲染
                 this.renderer.render(this.scene, this.camera);
             }
-            
-            showError(message) {
-                document.body.innerHTML = `
-                    <div style="
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background: #000;
-                        color: #fceea7;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                        align-items: center;
-                        text-align: center;
-                        padding: 20px;
-                    ">
-                        <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
-                        <p style="margin-bottom: 10px; color: #ff6b6b;">加载错误: ${message}</p>
-                        <p style="margin-bottom: 30px; max-width: 600px;">
-                            请尝试以下解决方案：
-                        </p>
-                        <div style="text-align: left; margin-bottom: 30px;">
-                            <ul style="margin: 15px 0;">
-                                <li>刷新页面重试</li>
-                                <li>检查网络连接</li>
-                                <li>使用最新版Chrome或Safari浏览器</li>
-                                <li>确保WebGL已启用</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <button onclick="location.reload()" style="
-                                background: #d4af37;
-                                color: #000;
-                                border: none;
-                                padding: 12px 24px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                font-size: 16px;
-                                margin: 10px;
-                            ">刷新页面</button>
-                        </div>
-                    </div>
-                `;
-            }
         }
         
-        // =========== 主启动函数 ===========
-        async function main() {
-            const loader = new ResourceLoader();
-            
+        // =========== 全局函数 ===========
+        function initApp() {
             try {
-                // 显示加载状态
-                console.log('开始加载Three.js...');
-                
-                // 尝试加载Three.js
-                await loader.load();
-                
-                // 检查Three.js是否加载成功
-                if (typeof THREE === 'undefined') {
-                    throw new Error('Three.js库加载失败');
-                }
-                
-                console.log('Three.js加载成功，开始初始化应用...');
-                
-                // 创建并初始化应用
                 const app = new ChristmasTreeApp();
-                await app.init();
-                
-                // 全局访问（调试用）
+                app.init();
                 window.app = app;
                 
                 // 页面卸载时清理
@@ -1170,74 +1148,76 @@
                 });
                 
             } catch (error) {
-                console.error('启动失败:', error);
-                
-                // 显示错误页面
-                document.body.innerHTML = `
-                    <div style="
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background: #000;
-                        color: #fceea7;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                        align-items: center;
-                        text-align: center;
-                        padding: 20px;
-                    ">
-                        <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
-                        <p style="margin-bottom: 10px; color: #ff6b6b;">启动失败: ${error.message}</p>
-                        <p style="margin-bottom: 30px; max-width: 600px;">
-                            这可能是由于网络问题导致Three.js库加载失败。
-                        </p>
-                        <div style="text-align: left; margin-bottom: 30px;">
-                            <ul style="margin: 15px 0;">
-                                <li>检查网络连接</li>
-                                <li>尝试刷新页面</li>
-                                <li>如果问题持续，请稍后再试</li>
-                                <li>或者更换浏览器</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <button onclick="location.reload()" style="
-                                background: #d4af37;
-                                color: #000;
-                                border: none;
-                                padding: 12px 24px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                font-size: 16px;
-                                margin: 10px;
-                            ">刷新页面</button>
-                            <button onclick="window.open('https://get.webgl.org/', '_blank')" style="
-                                background: transparent;
-                                color: #fceea7;
-                                border: 1px solid #d4af37;
-                                padding: 12px 24px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                font-size: 16px;
-                                margin: 10px;
-                            ">检查WebGL支持</button>
-                        </div>
-                    </div>
-                `;
+                console.error('应用初始化失败:', error);
+                showLoadError('应用初始化失败: ' + error.message);
             }
         }
         
-        // 页面加载完成后启动
-        window.addEventListener('DOMContentLoaded', main);
-        
-        // 防止移动端滚动
-        document.addEventListener('touchmove', (e) => {
-            if (e.target.id === 'canvas3d') {
-                e.preventDefault();
-            }
-        }, { passive: false });
+        function showLoadError(message) {
+            document.body.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: #000;
+                    color: #fceea7;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    text-align: center;
+                    padding: 20px;
+                ">
+                    <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
+                    <p style="margin-bottom: 10px; color: #ff6b6b;">加载错误: ${message}</p>
+                    <p style="margin-bottom: 30px; max-width: 600px;">
+                        这可能是因为缺少Three.js库文件。
+                    </p>
+                    <div style="text-align: left; margin-bottom: 30px; background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 8px;">
+                        <h3 style="color: #d4af37; margin-bottom: 10px;">解决方案：</h3>
+                        <ol style="margin: 15px 0; padding-left: 20px;">
+                            <li>下载Three.js库文件：<br>
+                                <a href="https://unpkg.com/three@0.160.0/build/three.min.js" style="color: #d4af37; word-break: break-all;" target="_blank">
+                                    https://unpkg.com/three@0.160.0/build/three.min.js
+                                </a>
+                            </li>
+                            <li>在项目根目录创建 <code>lib</code> 文件夹</li>
+                            <li>将下载的 three.min.js 放入 lib/ 文件夹</li>
+                            <li>确保文件结构为：<br>
+                                <code>project/<br>
+                                &nbsp;&nbsp;├── lib/<br>
+                                &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── three.min.js<br>
+                                &nbsp;&nbsp;└── christmas-tree.html</code>
+                            </li>
+                        </ol>
+                    </div>
+                    <div>
+                        <button onclick="location.reload()" style="
+                            background: #d4af37;
+                            color: #000;
+                            border: none;
+                            padding: 12px 24px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            margin: 10px;
+                        ">刷新页面</button>
+                        <button onclick="window.open('https://get.webgl.org/', '_blank')" style="
+                            background: transparent;
+                            color: #fceea7;
+                            border: 1px solid #d4af37;
+                            padding: 12px 24px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            margin: 10px;
+                        ">检查WebGL支持</button>
+                    </div>
+                </div>
+            `;
+        }
     </script>
 </body>
 </html>

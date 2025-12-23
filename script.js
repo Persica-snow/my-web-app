@@ -1,173 +1,54 @@
-// 设备检测与性能分级模块
+// ==================== 本地化模块导入 ====================
+// 使用本地importmap中配置的路径
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { CurveExtras } from 'three/addons/curves/CurveExtras.js';
+
+// ==================== 设备检测器 ====================
 class DeviceDetector {
-    static getDeviceInfo() {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const platform = navigator.platform.toLowerCase();
+    static detect() {
+        const ua = navigator.userAgent;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // 性能分级
+        let performanceLevel = 'medium';
+        const memory = navigator.deviceMemory || 4;
+        const cores = navigator.hardwareConcurrency || 4;
+        
+        if (isMobile) {
+            if (memory < 3 || cores < 4) performanceLevel = 'low';
+            else if (memory >= 6 && cores >= 8) performanceLevel = 'high';
+        } else {
+            if (memory < 4 || cores < 4) performanceLevel = 'low';
+            else if (memory >= 8 && cores >= 8) performanceLevel = 'high';
+        }
         
         return {
-            // 设备类型检测
-            isMobile: /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent),
-            isTablet: /ipad|android(?!.*mobile)/i.test(userAgent),
-            isDesktop: !/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent),
-            isIOS: /ipad|iphone|ipod/.test(platform),
-            isAndroid: /android/.test(userAgent),
-            isChrome: /chrome/.test(userAgent),
-            isFirefox: /firefox/.test(userAgent),
-            isSafari: /safari/.test(userAgent) && !/chrome/.test(userAgent),
-            
-            // 触摸设备检测
-            isTouchDevice: 'ontouchstart' in window || 
-                          navigator.maxTouchPoints > 0 || 
-                          navigator.msMaxTouchPoints > 0,
-            
-            // 性能分级
-            getPerformanceLevel() {
-                const memory = navigator.deviceMemory || 4;
-                const cores = navigator.hardwareConcurrency || 4;
-                const isLowPower = navigator.hardwareConcurrency <= 2 || memory <= 2;
-                const isHighEnd = memory >= 8 && cores >= 8 && !this.isMobile;
-                
-                if (this.isMobile && isLowPower) return 'low';
-                if (this.isMobile && !isLowPower) return 'medium';
-                if (isHighEnd) return 'high';
-                return 'medium';
-            },
-            
-            // WebGL 能力检测
-            getWebGLCapabilities() {
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                
-                if (!gl) return null;
-                
-                const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-                const maxRenderBufferSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE);
-                const maxTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
-                
-                return {
-                    maxTextureSize,
-                    maxRenderBufferSize,
-                    maxTextureUnits,
-                    hasHighp: gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT).precision > 0,
-                    hasOESTextureFloat: !!gl.getExtension('OES_texture_float'),
-                    hasOESTextureFloatLinear: !!gl.getExtension('OES_texture_float_linear'),
-                    hasOESStandardDerivatives: !!gl.getExtension('OES_standard_derivatives'),
-                };
-            },
-            
-            // 电池状态检测
-            async getBatteryInfo() {
-                if ('getBattery' in navigator) {
-                    try {
-                        const battery = await navigator.getBattery();
-                        return {
-                            charging: battery.charging,
-                            level: battery.level,
-                            chargingTime: battery.chargingTime,
-                            dischargingTime: battery.dischargingTime,
-                        };
-                    } catch (error) {
-                        console.warn('Battery API not available:', error);
-                        return null;
-                    }
-                }
-                return null;
-            },
-            
-            // 内存警告检测
-            getMemoryInfo() {
-                if ('deviceMemory' in navigator) {
-                    return {
-                        deviceMemory: navigator.deviceMemory,
-                        totalJSHeapSize: performance.memory?.totalJSHeapSize,
-                        usedJSHeapSize: performance.memory?.usedJSHeapSize,
-                        jsHeapSizeLimit: performance.memory?.jsHeapSizeLimit,
-                    };
-                }
-                return null;
-            }
-        };
-    }
-    
-    // 获取推荐设置
-    static getRecommendedSettings() {
-        const info = this.getDeviceInfo();
-        const perfLevel = info.getPerformanceLevel();
-        
-        const settings = {
-            low: {
-                // 低性能设置
-                particleCount: 800,
-                mainParticleCount: 300,
-                dustParticleCount: 500,
-                textureQuality: 'low',
-                enableBloom: false,
-                enableShadows: false,
-                antialias: false,
-                pixelRatio: 1.0,
-                renderScale: 0.8,
-                maxFPS: 30,
-                lodEnabled: true,
-                maxPhotos: 5,
-                geometryDetail: 'low',
-                physicsQuality: 'low'
-            },
-            medium: {
-                // 中性能设置
-                particleCount: 1500,
-                mainParticleCount: 500,
-                dustParticleCount: 1000,
-                textureQuality: 'medium',
-                enableBloom: info.isMobile ? false : true,
-                enableShadows: info.isMobile ? false : true,
-                antialias: false,
-                pixelRatio: info.isMobile ? 1.0 : 1.5,
-                renderScale: info.isMobile ? 0.9 : 1.0,
-                maxFPS: info.isMobile ? 45 : 60,
-                lodEnabled: true,
-                maxPhotos: 8,
-                geometryDetail: info.isMobile ? 'medium' : 'high',
-                physicsQuality: 'medium'
-            },
-            high: {
-                // 高性能设置
-                particleCount: 4000,
-                mainParticleCount: 1500,
-                dustParticleCount: 2500,
-                textureQuality: 'high',
-                enableBloom: true,
-                enableShadows: true,
-                antialias: true,
-                pixelRatio: Math.min(2.0, window.devicePixelRatio),
-                renderScale: 1.0,
-                maxFPS: 60,
-                lodEnabled: false,
-                maxPhotos: 15,
-                geometryDetail: 'high',
-                physicsQuality: 'high'
-            }
-        };
-        
-        return {
-            ...settings[perfLevel],
-            isMobile: info.isMobile,
-            isTablet: info.isTablet,
-            performanceLevel: perfLevel,
-            isTouchDevice: info.isTouchDevice
+            isMobile,
+            isTouch,
+            performanceLevel,
+            isIOS: /iPad|iPhone|iPod/.test(ua),
+            isAndroid: /Android/.test(ua),
+            isDesktop: !isMobile && !isTouch,
+            memory,
+            cores
         };
     }
 }
 
-// 性能监控器
+// ==================== 性能监控器 ====================
 class PerformanceMonitor {
     constructor() {
         this.fps = 60;
         this.frameCount = 0;
         this.lastTime = performance.now();
         this.fpsHistory = [];
-        this.maxHistoryLength = 60;
-        this.lowFPSThreshold = 30;
-        this.warnings = [];
+        this.lowFPSWarnings = 0;
     }
     
     update() {
@@ -180,23 +61,28 @@ class PerformanceMonitor {
             this.lastTime = currentTime;
             
             this.fpsHistory.push(this.fps);
-            if (this.fpsHistory.length > this.maxHistoryLength) {
+            if (this.fpsHistory.length > 60) {
                 this.fpsHistory.shift();
             }
             
-            this.checkPerformance();
+            return this.checkPerformance();
         }
+        return null;
     }
     
     checkPerformance() {
-        const avgFPS = this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length;
+        if (this.fpsHistory.length < 10) return null;
         
-        if (avgFPS < this.lowFPSThreshold && this.fpsHistory.length >= 10) {
-            if (!this.warnings.includes('low_fps')) {
-                this.warnings.push('low_fps');
-                console.warn(`Low FPS detected: ${avgFPS.toFixed(1)} FPS`);
-                return 'low_fps';
+        const avgFPS = this.fpsHistory.reduce((a, b) => a + b) / this.fpsHistory.length;
+        
+        if (avgFPS < 30) {
+            this.lowFPSWarnings++;
+            if (this.lowFPSWarnings >= 3) {
+                return 'critical';
             }
+            return 'warning';
+        } else if (avgFPS < 45) {
+            return 'notice';
         }
         
         return null;
@@ -204,16 +90,11 @@ class PerformanceMonitor {
     
     getAverageFPS() {
         if (this.fpsHistory.length === 0) return this.fps;
-        return this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length;
-    }
-    
-    reset() {
-        this.fpsHistory = [];
-        this.warnings = [];
+        return this.fpsHistory.reduce((a, b) => a + b) / this.fpsHistory.length;
     }
 }
 
-// 触摸控制器
+// ==================== 触摸控制器 ====================
 class TouchController {
     constructor(app) {
         this.app = app;
@@ -223,11 +104,9 @@ class TouchController {
         this.lastTapTime = 0;
         this.longPressTimer = null;
         this.pinchStartDistance = 0;
-        this.touchCount = 0;
         
-        // 触摸灵敏度（根据设备调整）
-        this.sensitivity = this.app.isMobile ? 0.005 : 0.01;
-        this.rotationSpeed = 0.15;
+        this.sensitivity = 0.005;
+        this.rotationSpeed = 0.1;
     }
     
     enable() {
@@ -235,16 +114,28 @@ class TouchController {
         
         const canvas = this.app.renderer.domElement;
         
-        // 单指触摸 - 旋转控制
         canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
         canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
         canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
         
-        // 防止页面滚动
-        document.addEventListener('touchmove', this.preventDefault, { passive: false });
+        document.addEventListener('touchmove', this.preventDefault.bind(this), { passive: false });
         
         this.isEnabled = true;
-        this.showTouchHint();
+        
+        // 显示触摸提示
+        setTimeout(() => {
+            const touchHint = document.getElementById('touchHint');
+            if (touchHint && !localStorage.getItem('touchHintShown')) {
+                touchHint.style.display = 'block';
+                setTimeout(() => {
+                    touchHint.style.opacity = '0';
+                    setTimeout(() => {
+                        touchHint.style.display = 'none';
+                        localStorage.setItem('touchHintShown', 'true');
+                    }, 500);
+                }, 5000);
+            }
+        }, 1000);
     }
     
     disable() {
@@ -262,11 +153,10 @@ class TouchController {
     
     handleTouchStart(event) {
         event.preventDefault();
-        this.touchCount = event.touches.length;
+        const touches = event.touches;
         
-        if (this.touchCount === 1) {
-            // 单指触摸 - 开始旋转
-            const touch = event.touches[0];
+        if (touches.length === 1) {
+            const touch = touches[0];
             this.touchStartPos = {
                 x: touch.clientX,
                 y: touch.clientY,
@@ -278,13 +168,11 @@ class TouchController {
                 this.handleLongPress();
             }, 800);
             
-        } else if (this.touchCount === 2) {
-            // 双指触摸 - 开始捏合
-            const touch1 = event.touches[0];
-            const touch2 = event.touches[1];
+        } else if (touches.length === 2) {
+            const touch1 = touches[0];
+            const touch2 = touches[1];
             this.pinchStartDistance = this.getTouchDistance(touch1, touch2);
             
-            // 清除长按计时器
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
                 this.longPressTimer = null;
@@ -294,42 +182,40 @@ class TouchController {
     
     handleTouchMove(event) {
         event.preventDefault();
-        this.touchCount = event.touches.length;
+        const touches = event.touches;
         
-        if (this.touchCount === 1 && this.touchStartPos.x !== 0) {
-            // 单指移动 - 旋转场景
-            const touch = event.touches[0];
+        if (touches.length === 1 && this.touchStartPos.x !== 0) {
+            const touch = touches[0];
             const deltaX = touch.clientX - this.touchStartPos.x;
             const deltaY = touch.clientY - this.touchStartPos.y;
             
-            // 更新旋转
             this.touchRotation.y += deltaX * this.sensitivity;
             this.touchRotation.x += deltaY * this.sensitivity;
             
-            // 限制X轴旋转角度
+            // 限制X轴旋转
             this.touchRotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.touchRotation.x));
             
-            // 更新起始位置
             this.touchStartPos.x = touch.clientX;
             this.touchStartPos.y = touch.clientY;
             
-            // 清除长按计时器
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
                 this.longPressTimer = null;
             }
             
-        } else if (this.touchCount === 2 && this.pinchStartDistance > 0) {
-            // 双指移动 - 捏合检测
-            const touch1 = event.touches[0];
-            const touch2 = event.touches[1];
+        } else if (touches.length === 2 && this.pinchStartDistance > 0) {
+            const touch1 = touches[0];
+            const touch2 = touches[1];
             const currentDistance = this.getTouchDistance(touch1, touch2);
             const pinchRatio = currentDistance / this.pinchStartDistance;
             
-            // 捏合检测（缩放比例小于0.7）
+            // 捏合检测
             if (pinchRatio < 0.7 && this.app.STATE.mode !== 'FOCUS') {
                 this.app.setMode('FOCUS');
                 this.pinchStartDistance = 0;
+                
+                // 触觉反馈
+                if (navigator.vibrate) navigator.vibrate(50);
             }
         }
     }
@@ -337,47 +223,37 @@ class TouchController {
     handleTouchEnd(event) {
         event.preventDefault();
         
-        // 清除长按计时器
         if (this.longPressTimer) {
             clearTimeout(this.longPressTimer);
             this.longPressTimer = null;
         }
         
-        // 点击/双击检测
+        // 双击检测
         const now = Date.now();
         const timeDiff = now - this.lastTapTime;
         
-        if (timeDiff < 300 && timeDiff > 50 && this.touchCount === 0) {
-            // 双击 - 隐藏/显示UI
+        if (timeDiff < 300 && timeDiff > 50) {
             this.handleDoubleTap();
         }
         
         this.lastTapTime = now;
-        this.touchCount = 0;
         this.pinchStartDistance = 0;
     }
     
     handleLongPress() {
-        // 长按 - 切换模式
         const modes = ['TREE', 'SCATTER', 'FOCUS'];
         const currentIndex = modes.indexOf(this.app.STATE.mode);
         const nextIndex = (currentIndex + 1) % modes.length;
         this.app.setMode(modes[nextIndex]);
         
-        // 提供触觉反馈（如果可用）
-        if (navigator.vibrate) {
-            navigator.vibrate(50);
-        }
+        if (navigator.vibrate) navigator.vibrate(50);
     }
     
     handleDoubleTap() {
-        // 双击 - 切换UI显示
-        this.app.uiContainer.classList.toggle('ui-hidden');
+        const uiContainer = document.getElementById('uiContainer');
+        uiContainer.classList.toggle('ui-hidden');
         
-        // 提供触觉反馈
-        if (navigator.vibrate) {
-            navigator.vibrate(30);
-        }
+        if (navigator.vibrate) navigator.vibrate(30);
     }
     
     getTouchDistance(touch1, touch2) {
@@ -392,34 +268,7 @@ class TouchController {
         }
     }
     
-    showTouchHint() {
-        // 显示触摸提示（首次使用时）
-        const touchHint = document.getElementById('touchHint');
-        if (touchHint && !localStorage.getItem('touchHintShown')) {
-            touchHint.style.display = 'block';
-            
-            // 10秒后自动隐藏
-            setTimeout(() => {
-                touchHint.style.opacity = '0';
-                setTimeout(() => {
-                    touchHint.style.display = 'none';
-                }, 500);
-            }, 10000);
-            
-            // 点击后立即隐藏
-            touchHint.addEventListener('click', () => {
-                touchHint.style.opacity = '0';
-                setTimeout(() => {
-                    touchHint.style.display = 'none';
-                }, 500);
-            });
-            
-            localStorage.setItem('touchHintShown', 'true');
-        }
-    }
-    
     update() {
-        // 平滑更新旋转
         if (this.app.mainGroup) {
             this.app.mainGroup.rotation.y = THREE.MathUtils.lerp(
                 this.app.mainGroup.rotation.y,
@@ -435,38 +284,36 @@ class TouchController {
     }
 }
 
-// 手势识别器（MediaPipe降级版）
+// ==================== 手势识别器（MediaPipe降级版） ====================
 class GestureRecognizer {
     constructor(app) {
         this.app = app;
         this.handLandmarker = null;
-        this.lastVideoTime = -1;
         this.isAvailable = false;
-        this.gestureHistory = [];
-        this.gestureConfidence = 0;
-        this.debounceTime = 500;
         this.lastGestureTime = 0;
+        this.debounceTime = 500;
     }
     
     async initialize() {
+        // 移动端或低性能设备禁用MediaPipe
+        if (this.app.deviceInfo.isMobile || this.app.settings.performanceLevel === 'low') {
+            console.log('设备不支持或禁用MediaPipe');
+            return false;
+        }
+        
         try {
-            // 仅在非移动端或高性能移动端尝试MediaPipe
-            if (this.app.isMobile && this.app.settings.performanceLevel === 'low') {
-                console.log('Skipping MediaPipe on low-performance mobile device');
-                return false;
-            }
+            // 尝试动态加载MediaPipe
+            const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm');
+            const vision = visionModule.FilesetResolver;
             
-            const vision = await FilesetResolver.forVisionTasks(
+            const filesetResolver = await vision.forVisionTasks(
                 "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
             );
             
-            // 根据设备选择委托
-            const delegate = this.app.isMobile ? "CPU" : "GPU";
-            
-            this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            this.handLandmarker = await visionModule.HandLandmarker.createFromOptions(filesetResolver, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                    delegate: delegate
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                    delegate: "GPU"
                 },
                 runningMode: "VIDEO",
                 numHands: 1,
@@ -479,11 +326,11 @@ class GestureRecognizer {
             await this.setupWebcam();
             
             this.isAvailable = true;
-            console.log('MediaPipe initialized successfully');
+            console.log('MediaPipe手势识别已启用');
             return true;
             
         } catch (error) {
-            console.warn('MediaPipe initialization failed:', error);
+            console.warn('MediaPipe初始化失败:', error);
             this.isAvailable = false;
             return false;
         }
@@ -492,26 +339,18 @@ class GestureRecognizer {
     async setupWebcam() {
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('outputCanvas');
-        const statusEl = document.getElementById('webcamStatus');
+        const statusEl = document.querySelector('.webcam-status');
         
         if (!navigator.mediaDevices.getUserMedia) {
-            throw new Error('getUserMedia not supported');
+            throw new Error('摄像头不支持');
         }
         
-        // 移动端摄像头约束
-        const constraints = this.app.isMobile ? {
+        const constraints = {
             video: {
                 width: { ideal: 640 },
                 height: { ideal: 480 },
                 facingMode: 'user',
-                frameRate: { ideal: 24, max: 30 }
-            },
-            audio: false
-        } : {
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                frameRate: { ideal: 60 }
+                frameRate: { ideal: 30 }
             },
             audio: false
         };
@@ -527,17 +366,17 @@ class GestureRecognizer {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             
-            // 更新状态指示器
+            // 更新状态
             if (statusEl) {
                 statusEl.querySelector('.status-indicator').style.background = '#44ff44';
-                statusEl.querySelector('.status-text').textContent = '摄像头已就绪';
+                statusEl.querySelector('.status-text').textContent = '手势识别就绪';
             }
             
             // 开始预测
             this.predictWebcam();
             
         } catch (error) {
-            console.error('Webcam setup failed:', error);
+            console.error('摄像头设置失败:', error);
             if (statusEl) {
                 statusEl.querySelector('.status-text').textContent = '摄像头不可用';
             }
@@ -550,27 +389,16 @@ class GestureRecognizer {
         
         const video = document.getElementById('webcam');
         
-        if (video.currentTime === this.lastVideoTime) {
-            requestAnimationFrame(this.predictWebcam);
-            return;
-        }
-        
-        this.lastVideoTime = video.currentTime;
-        
         try {
             const results = this.handLandmarker.detectForVideo(video, Date.now());
             
             if (results.landmarks && results.landmarks.length > 0) {
                 const landmarks = results.landmarks[0];
-                
-                // 处理手势
                 this.processGestures(landmarks);
-                
-                // 映射手部位置到3D旋转
                 this.mapHandToRotation(landmarks);
             }
         } catch (error) {
-            console.warn('Hand detection error:', error);
+            console.warn('手势识别错误:', error);
         }
         
         requestAnimationFrame(this.predictWebcam);
@@ -578,11 +406,8 @@ class GestureRecognizer {
     
     processGestures(landmarks) {
         const now = Date.now();
-        if (now - this.lastGestureTime < this.debounceTime) {
-            return;
-        }
+        if (now - this.lastGestureTime < this.debounceTime) return;
         
-        // 获取关键点
         const thumbTip = landmarks[4];
         const indexTip = landmarks[8];
         const wrist = landmarks[0];
@@ -590,14 +415,14 @@ class GestureRecognizer {
         const ringTip = landmarks[16];
         const pinkyTip = landmarks[20];
         
-        // 计算捏合距离
+        // 捏合距离
         const pinchDistance = Math.hypot(
             thumbTip.x - indexTip.x,
             thumbTip.y - indexTip.y,
             thumbTip.z - indexTip.z
         );
         
-        // 计算指尖到手腕的平均距离
+        // 指尖到手腕距离
         const distances = [
             Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y, indexTip.z - wrist.z),
             Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y, middleTip.z - wrist.z),
@@ -607,43 +432,24 @@ class GestureRecognizer {
         
         const avgDistance = distances.reduce((a, b) => a + b) / distances.length;
         
-        // 根据设备调整阈值
-        const pinchThreshold = this.app.isMobile ? 0.08 : 0.05;
-        const fistThreshold = this.app.isMobile ? 0.3 : 0.25;
-        const openThreshold = this.app.isMobile ? 0.35 : 0.4;
-        
         // 手势识别
-        if (pinchDistance < pinchThreshold && this.app.STATE.mode !== 'FOCUS') {
+        if (pinchDistance < 0.05 && this.app.STATE.mode !== 'FOCUS') {
             this.app.setMode('FOCUS');
             this.lastGestureTime = now;
-        } else if (avgDistance < fistThreshold && this.app.STATE.mode !== 'TREE') {
+        } else if (avgDistance < 0.25 && this.app.STATE.mode !== 'TREE') {
             this.app.setMode('TREE');
             this.lastGestureTime = now;
-        } else if (avgDistance > openThreshold && this.app.STATE.mode !== 'SCATTER') {
+        } else if (avgDistance > 0.4 && this.app.STATE.mode !== 'SCATTER') {
             this.app.setMode('SCATTER');
             this.lastGestureTime = now;
         }
     }
     
     mapHandToRotation(landmarks) {
-        // 使用手掌中心（地标9）进行旋转控制
         const palmCenter = landmarks[9];
         
-        // 将标准化坐标映射到旋转值
-        const rotationY = (palmCenter.x - 0.5) * 2;
-        const rotationX = (0.5 - palmCenter.y) * (this.app.isMobile ? 1.0 : 1.5);
-        
-        // 平滑处理
-        this.app.STATE.gestureData.rotationY = THREE.MathUtils.lerp(
-            this.app.STATE.gestureData.rotationY,
-            rotationY,
-            0.1
-        );
-        this.app.STATE.gestureData.rotationX = THREE.MathUtils.lerp(
-            this.app.STATE.gestureData.rotationX,
-            rotationX,
-            0.1
-        );
+        this.app.STATE.gestureData.rotationY = (palmCenter.x - 0.5) * 2;
+        this.app.STATE.gestureData.rotationX = (0.5 - palmCenter.y) * 1.5;
     }
     
     dispose() {
@@ -651,19 +457,24 @@ class GestureRecognizer {
             this.handLandmarker.close();
             this.handLandmarker = null;
         }
+        
+        const video = document.getElementById('webcam');
+        if (video && video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
     }
 }
 
-// 主应用类
+// ==================== 主应用类 ====================
 class ChristmasTreeApp {
     constructor() {
-        // 设备检测
-        this.deviceInfo = DeviceDetector.getDeviceInfo();
-        this.settings = DeviceDetector.getRecommendedSettings();
-        this.isMobile = this.settings.isMobile;
-        this.isTouchDevice = this.settings.isTouchDevice;
+        // 设备信息
+        this.deviceInfo = DeviceDetector.detect();
         
-        // Three.js 核心对象
+        // 性能设置
+        this.settings = this.getPerformanceSettings();
+        
+        // Three.js 核心
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -673,132 +484,147 @@ class ChristmasTreeApp {
         
         // 性能监控
         this.performanceMonitor = new PerformanceMonitor();
-        this.frameSkip = 0;
-        this.frameCounter = 0;
         
         // 粒子系统
         this.mainGroup = new THREE.Group();
         this.particles = [];
         this.photos = [];
-        this.mixers = [];
         
         // 状态管理
         this.STATE = {
-            mode: 'TREE', // TREE, SCATTER, FOCUS
-            targetPositions: [],
-            gestureData: {
-                rotationX: 0,
-                rotationY: 0
-            },
+            mode: 'TREE',
             isAnimating: true,
-            quality: this.settings.quality
+            gestureData: { rotationX: 0, rotationY: 0 }
         };
         
         // 控制器
         this.touchController = new TouchController(this);
         this.gestureRecognizer = new GestureRecognizer(this);
         
-        // UI 元素
-        this.uiElements = {};
-        this.cacheUIElements();
-        
         // 初始化
         this.init();
     }
     
-    cacheUIElements() {
-        this.uiElements = {
-            loader: document.getElementById('loader'),
-            loaderProgress: document.getElementById('loaderProgress'),
-            performanceWarning: document.getElementById('performanceWarning'),
-            continueBtn: document.getElementById('continueBtn'),
-            lightweightBtn: document.getElementById('lightweightBtn'),
-            deviceHint: document.getElementById('deviceHint'),
-            closeHint: document.getElementById('closeHint'),
-            uiContainer: document.getElementById('uiContainer'),
-            modeIndicator: document.getElementById('modeIndicator'),
-            modeIcon: document.getElementById('modeIcon'),
-            modeText: document.getElementById('modeText'),
-            modeSubtext: document.getElementById('modeSubtext'),
-            desktopInstruction: document.getElementById('desktopInstruction'),
-            mobileInstruction: document.getElementById('mobileInstruction'),
-            uploadBtn: document.getElementById('uploadBtn'),
-            fileInput: document.getElementById('fileInput'),
-            modeControls: document.getElementById('modeControls'),
-            qualitySelect: document.getElementById('qualitySelect'),
-            enableBloom: document.getElementById('enableBloom'),
-            enableShadows: document.getElementById('enableShadows'),
-            settingsToggle: document.getElementById('settingsToggle'),
-            settingsContent: document.getElementById('settingsContent'),
-            quickHide: document.getElementById('quickHide'),
-            quickPhoto: document.getElementById('quickPhoto'),
-            quickReset: document.getElementById('quickReset'),
-            mobileQuickbar: document.getElementById('mobileQuickbar'),
-            photoCounter: document.getElementById('photoCounter'),
-            photoCount: document.getElementById('photoCount'),
-            webcamContainer: document.getElementById('webcamContainer'),
-            toggleFullscreen: document.getElementById('toggleFullscreen'),
-            toggleMute: document.getElementById('toggleMute'),
-            showHelp: document.getElementById('showHelp'),
-            touchHint: document.getElementById('touchHint')
+    getPerformanceSettings() {
+        const { performanceLevel, isMobile } = this.deviceInfo;
+        
+        const settings = {
+            low: {
+                particleCount: 800,
+                mainParticleCount: 300,
+                enableBloom: false,
+                enableShadows: false,
+                antialias: false,
+                pixelRatio: 1.0,
+                renderScale: 0.8,
+                maxPhotos: 5,
+                geometryDetail: 'low'
+            },
+            medium: {
+                particleCount: 2000,
+                mainParticleCount: 600,
+                enableBloom: !isMobile,
+                enableShadows: !isMobile,
+                antialias: false,
+                pixelRatio: isMobile ? 1.0 : 1.5,
+                renderScale: isMobile ? 0.9 : 1.0,
+                maxPhotos: 8,
+                geometryDetail: isMobile ? 'medium' : 'high'
+            },
+            high: {
+                particleCount: 4000,
+                mainParticleCount: 1500,
+                enableBloom: true,
+                enableShadows: true,
+                antialias: true,
+                pixelRatio: Math.min(2.0, window.devicePixelRatio),
+                renderScale: 1.0,
+                maxPhotos: 12,
+                geometryDetail: 'high'
+            }
+        };
+        
+        return {
+            ...settings[performanceLevel],
+            isMobile,
+            performanceLevel
         };
     }
     
     async init() {
         try {
             // 更新加载进度
-            this.updateLoaderProgress(10);
+            this.updateLoaderProgress(20);
             
             // 初始化Three.js
             await this.initThreeJS();
-            this.updateLoaderProgress(30);
+            this.updateLoaderProgress(40);
             
-            // 初始化手势识别（降级处理）
-            await this.initGestureRecognition();
-            this.updateLoaderProgress(50);
+            // 初始化手势识别
+            if (!this.deviceInfo.isMobile) {
+                await this.gestureRecognizer.initialize();
+            }
+            this.updateLoaderProgress(60);
             
             // 创建粒子
             this.createParticles();
-            this.updateLoaderProgress(70);
+            this.updateLoaderProgress(80);
             
             // 创建默认照片
             this.createDefaultPhoto();
-            this.updateLoaderProgress(85);
+            this.updateLoaderProgress(90);
             
             // 设置事件监听器
             this.setupEventListeners();
             this.updateLoaderProgress(95);
             
-            // 开始动画循环
+            // 启动触摸控制（移动端）
+            if (this.deviceInfo.isTouch && !this.gestureRecognizer.isAvailable) {
+                this.touchController.enable();
+            }
+            
+            // 开始动画
             this.animate();
             this.updateLoaderProgress(100);
             
-            // 隐藏加载器
+            // 完成加载
             setTimeout(() => {
-                this.uiElements.loader.classList.add('hidden');
+                document.getElementById('loader').classList.add('hidden');
                 
-                // 显示设备提示（如果是移动端）
-                if (this.isMobile && !this.gestureRecognizer.isAvailable) {
-                    this.showDeviceHint();
-                }
-                
-                // 显示性能警告（如果是低性能设备）
-                if (this.settings.performanceLevel === 'low') {
+                // 显示设备提示
+                if (this.deviceInfo.isMobile) {
                     setTimeout(() => {
-                        this.uiElements.performanceWarning.style.display = 'block';
+                        const deviceHint = document.getElementById('deviceHint');
+                        if (deviceHint) {
+                            deviceHint.style.display = 'block';
+                            setTimeout(() => {
+                                deviceHint.style.opacity = '0';
+                                setTimeout(() => {
+                                    deviceHint.style.display = 'none';
+                                }, 500);
+                            }, 5000);
+                        }
                     }, 1000);
                 }
                 
-            }, 500);
+                // 性能警告
+                if (this.settings.performanceLevel === 'low') {
+                    setTimeout(() => {
+                        const warning = document.getElementById('performanceWarning');
+                        if (warning) warning.style.display = 'block';
+                    }, 1500);
+                }
+                
+            }, 1000);
             
         } catch (error) {
-            console.error('Initialization failed:', error);
-            this.handleInitializationError(error);
+            console.error('初始化失败:', error);
+            this.showError(error.message);
         }
     }
     
     updateLoaderProgress(percent) {
-        const progressBar = this.uiElements.loaderProgress?.querySelector('.progress-bar');
+        const progressBar = document.getElementById('loaderProgress');
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
         }
@@ -810,7 +636,7 @@ class ChristmasTreeApp {
         this.scene.background = new THREE.Color(0x000000);
         this.scene.fog = new THREE.Fog(0x000000, 50, 150);
         
-        // 相机 - 根据设备调整
+        // 相机
         this.camera = new THREE.PerspectiveCamera(
             60,
             window.innerWidth / window.innerHeight,
@@ -818,9 +644,9 @@ class ChristmasTreeApp {
             1000
         );
         
-        if (this.isMobile) {
+        if (this.deviceInfo.isMobile) {
             this.camera.position.set(0, 3, 35);
-            this.camera.fov = 65; // 更宽的视野适合移动端
+            this.camera.fov = 65;
         } else {
             this.camera.position.set(0, 2, 50);
         }
@@ -830,11 +656,9 @@ class ChristmasTreeApp {
             canvas: document.getElementById('canvas3d'),
             antialias: this.settings.antialias,
             alpha: false,
-            powerPreference: this.settings.performanceLevel === 'low' ? 'low-power' : 'high-performance',
-            preserveDrawingBuffer: this.isMobile // 移动端优化
+            powerPreference: 'default'
         });
         
-        // 性能优化设置
         this.renderer.setPixelRatio(this.settings.pixelRatio);
         this.renderer.setSize(
             window.innerWidth * this.settings.renderScale,
@@ -842,28 +666,26 @@ class ChristmasTreeApp {
         );
         
         this.renderer.toneMapping = THREE.ReinhardToneMapping;
-        this.renderer.toneMappingExposure = this.isMobile ? 1.8 : 2.2;
+        this.renderer.toneMappingExposure = this.deviceInfo.isMobile ? 1.8 : 2.2;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.shadowMap.enabled = this.settings.enableShadows;
-        this.renderer.shadowMap.type = this.settings.performanceLevel === 'low' ? 
-            THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
-        // 环境
+        // 环境（简化版，不使用PMREMGenerator）
         const environment = new RoomEnvironment();
-        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-        this.scene.environment = pmremGenerator.fromScene(environment).texture;
+        this.scene.environment = environment;
         
-        // 灯光系统
+        // 灯光
         this.setupLights();
-        
-        // 添加主组到场景
-        this.scene.add(this.mainGroup);
         
         // 后期处理
         this.setupPostProcessing();
         
         // 轨道控制器
         this.setupOrbitControls();
+        
+        // 添加主组
+        this.scene.add(this.mainGroup);
     }
     
     setupLights() {
@@ -888,8 +710,8 @@ class ChristmasTreeApp {
         spotLight1.position.set(30, 40, 40);
         spotLight1.castShadow = this.settings.enableShadows;
         if (spotLight1.castShadow) {
-            spotLight1.shadow.mapSize.width = this.isMobile ? 256 : 512;
-            spotLight1.shadow.mapSize.height = this.isMobile ? 256 : 512;
+            spotLight1.shadow.mapSize.width = this.deviceInfo.isMobile ? 256 : 512;
+            spotLight1.shadow.mapSize.height = this.deviceInfo.isMobile ? 256 : 512;
         }
         this.scene.add(spotLight1);
         
@@ -911,16 +733,16 @@ class ChristmasTreeApp {
         const renderPass = new RenderPass(this.scene, this.camera);
         this.composer.addPass(renderPass);
         
-        // 辉光效果（根据设置启用）
+        // 辉光效果
         if (this.settings.enableBloom) {
             const bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(
                     window.innerWidth * this.settings.renderScale,
                     window.innerHeight * this.settings.renderScale
                 ),
-                this.isMobile ? 0.3 : 0.45,
-                this.isMobile ? 0.25 : 0.4,
-                this.isMobile ? 0.9 : 0.7
+                this.deviceInfo.isMobile ? 0.3 : 0.45,
+                this.deviceInfo.isMobile ? 0.25 : 0.4,
+                this.deviceInfo.isMobile ? 0.9 : 0.7
             );
             this.composer.addPass(bloomPass);
         }
@@ -929,82 +751,77 @@ class ChristmasTreeApp {
     setupOrbitControls() {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = this.isMobile ? 0.1 : 0.05;
+        this.controls.dampingFactor = this.deviceInfo.isMobile ? 0.1 : 0.05;
         this.controls.maxPolarAngle = Math.PI / 1.5;
-        this.controls.minDistance = this.isMobile ? 5 : 10;
-        this.controls.maxDistance = this.isMobile ? 60 : 100;
-        this.controls.enableZoom = !this.isMobile;
-        this.controls.enablePan = !this.isMobile;
-        this.controls.enableRotate = !this.isMobile; // 移动端禁用轨道控制，使用触摸控制
-    }
-    
-    async initGestureRecognition() {
-        // 尝试初始化MediaPipe手势识别
-        const gestureAvailable = await this.gestureRecognizer.initialize();
-        
-        if (!gestureAvailable && this.isTouchDevice) {
-            // 如果手势识别不可用，启用触摸控制
-            this.touchController.enable();
-            
-            // 隐藏摄像头容器
-            if (this.uiElements.webcamContainer) {
-                this.uiElements.webcamContainer.style.display = 'none';
-            }
-        }
+        this.controls.minDistance = this.deviceInfo.isMobile ? 5 : 10;
+        this.controls.maxDistance = this.deviceInfo.isMobile ? 60 : 100;
+        this.controls.enableZoom = !this.deviceInfo.isMobile;
+        this.controls.enablePan = !this.deviceInfo.isMobile;
+        this.controls.enableRotate = !this.deviceInfo.isMobile;
     }
     
     createParticles() {
         const totalParticles = this.settings.particleCount;
         const mainParticles = this.settings.mainParticleCount;
-        const dustParticles = this.settings.dustParticleCount;
+        const dustParticles = totalParticles - mainParticles;
         
-        // 根据质量设置材质
-        const materials = this.createMaterials();
+        // 材质
+        const materials = {
+            gold: new THREE.MeshStandardMaterial({
+                color: 0xd4af37,
+                metalness: 0.9,
+                roughness: 0.2
+            }),
+            green: new THREE.MeshStandardMaterial({
+                color: 0x1a5f1a,
+                metalness: 0.3,
+                roughness: 0.8
+            }),
+            red: new THREE.MeshPhysicalMaterial({
+                color: 0xff0000,
+                metalness: 0.5,
+                roughness: 0.3,
+                clearcoat: 0.8,
+                clearcoatRoughness: 0.1
+            }),
+            dust: new THREE.MeshStandardMaterial({
+                color: 0xfceea7,
+                emissive: 0xfceea7,
+                emissiveIntensity: 0.2
+            })
+        };
         
         // 创建糖果棒纹理
         const candyCaneTexture = this.createCandyCaneTexture();
         
-        // 创建主粒子
+        // 创建粒子
         for (let i = 0; i < totalParticles; i++) {
             // 低性能设备跳过部分粒子
             if (this.settings.performanceLevel === 'low' && i % 3 === 0) continue;
             
-            let geometry, material, type;
+            let geometry, material;
             
             if (i < mainParticles) {
-                // 主粒子
-                const shapeType = i % (this.isMobile ? 4 : 5);
+                const shapeType = i % (this.deviceInfo.isMobile ? 4 : 5);
                 
                 switch (shapeType) {
                     case 0: // 金色盒子
-                        geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8, 1);
+                        geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
                         material = materials.gold;
-                        type = 'BOX_GOLD';
                         break;
                     case 1: // 绿色盒子
-                        geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7, 1);
+                        geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
                         material = materials.green;
-                        type = 'BOX_GREEN';
                         break;
                     case 2: // 金色球体
-                        geometry = new THREE.SphereGeometry(
-                            0.5,
-                            this.settings.geometryDetail === 'low' ? 8 : 16,
-                            this.settings.geometryDetail === 'low' ? 6 : 16
-                        );
+                        geometry = new THREE.SphereGeometry(0.5, 16, 16);
                         material = materials.gold;
-                        type = 'SPHERE_GOLD';
                         break;
                     case 3: // 红色球体
-                        geometry = new THREE.SphereGeometry(
-                            0.6,
-                            this.settings.geometryDetail === 'low' ? 8 : 16,
-                            this.settings.geometryDetail === 'low' ? 6 : 16
-                        );
+                        geometry = new THREE.SphereGeometry(0.6, 16, 16);
                         material = materials.red;
-                        type = 'SPHERE_RED';
                         break;
-                    case 4: // 糖果棒（非移动端或高性能移动端）
+                    case 4: // 糖果棒
                         if (this.settings.performanceLevel !== 'low') {
                             geometry = this.createCandyCaneGeometry();
                             material = new THREE.MeshStandardMaterial({
@@ -1012,23 +829,18 @@ class ChristmasTreeApp {
                                 metalness: 0.2,
                                 roughness: 0.5
                             });
-                            type = 'CANDY';
                         } else {
                             continue;
                         }
                         break;
                 }
-            } else if (i < mainParticles + dustParticles) {
+            } else {
                 // 尘埃粒子
                 geometry = new THREE.SphereGeometry(
                     0.1 + Math.random() * 0.2,
-                    this.settings.geometryDetail === 'low' ? 6 : 8,
-                    this.settings.geometryDetail === 'low' ? 4 : 8
+                    8, 8
                 );
                 material = materials.dust;
-                type = 'DUST';
-            } else {
-                continue;
             }
             
             if (!geometry) continue;
@@ -1039,7 +851,6 @@ class ChristmasTreeApp {
             
             const particle = {
                 mesh,
-                type,
                 basePosition: new THREE.Vector3(),
                 targetPosition: new THREE.Vector3(),
                 velocity: new THREE.Vector3(
@@ -1060,46 +871,13 @@ class ChristmasTreeApp {
             this.mainGroup.add(mesh);
         }
         
-        // 根据当前模式更新位置
+        // 初始化位置
         this.updateParticlePositions();
-    }
-    
-    createMaterials() {
-        const flatShading = this.settings.performanceLevel === 'low';
-        
-        return {
-            gold: new THREE.MeshStandardMaterial({
-                color: 0xd4af37,
-                metalness: this.isMobile ? 0.7 : 0.9,
-                roughness: this.isMobile ? 0.4 : 0.2,
-                flatShading
-            }),
-            green: new THREE.MeshStandardMaterial({
-                color: 0x1a5f1a,
-                metalness: 0.3,
-                roughness: 0.8,
-                flatShading
-            }),
-            red: new THREE.MeshPhysicalMaterial({
-                color: 0xff0000,
-                metalness: 0.5,
-                roughness: 0.3,
-                clearcoat: this.isMobile ? 0.5 : 0.8,
-                clearcoatRoughness: 0.1,
-                flatShading
-            }),
-            dust: new THREE.MeshStandardMaterial({
-                color: 0xfceea7,
-                emissive: 0xfceea7,
-                emissiveIntensity: 0.2,
-                flatShading
-            })
-        };
     }
     
     createCandyCaneTexture() {
         const canvas = document.createElement('canvas');
-        const size = this.settings.textureQuality === 'high' ? 256 : 128;
+        const size = 128;
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
@@ -1110,7 +888,7 @@ class ChristmasTreeApp {
         
         // 红色条纹
         ctx.fillStyle = '#ff0000';
-        const stripeWidth = this.settings.textureQuality === 'high' ? 20 : 10;
+        const stripeWidth = 10;
         
         for (let i = -stripeWidth; i < canvas.width + stripeWidth; i += stripeWidth * 2) {
             ctx.fillRect(i, 0, stripeWidth, canvas.height);
@@ -1125,6 +903,7 @@ class ChristmasTreeApp {
     }
     
     createCandyCaneGeometry() {
+        // 使用Three.js核心的CatmullRomCurve3
         const curve = new THREE.CatmullRomCurve3([
             new THREE.Vector3(0, 0, 0),
             new THREE.Vector3(1, 1, 0),
@@ -1132,15 +911,13 @@ class ChristmasTreeApp {
             new THREE.Vector3(-1, 3, 0)
         ]);
         
-        const tubularSegments = this.settings.geometryDetail === 'high' ? 64 : 32;
-        const radialSegments = this.settings.geometryDetail === 'high' ? 8 : 6;
-        
-        return new THREE.TubeGeometry(curve, tubularSegments, 0.2, radialSegments, false);
+        // 使用Three.js核心的TubeGeometry
+        return new THREE.TubeGeometry(curve, 64, 0.2, 8, false);
     }
     
     createDefaultPhoto() {
         const canvas = document.createElement('canvas');
-        const size = this.settings.textureQuality === 'high' ? 512 : 256;
+        const size = 512;
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
@@ -1151,12 +928,12 @@ class ChristmasTreeApp {
         
         // 内部白色区域
         ctx.fillStyle = '#fceea7';
-        const margin = this.isMobile ? 15 : 20;
+        const margin = 20;
         ctx.fillRect(margin, margin, canvas.width - margin * 2, canvas.height - margin * 2);
         
         // 文字
         ctx.fillStyle = '#1a5f1a';
-        const fontSize = this.isMobile ? 30 : 60;
+        const fontSize = 60;
         ctx.font = `bold ${fontSize}px Cinzel`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1165,7 +942,7 @@ class ChristmasTreeApp {
         // 装饰元素
         ctx.fillStyle = '#ff0000';
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 3, this.isMobile ? 20 : 30, 0, Math.PI * 2);
+        ctx.arc(canvas.width / 2, canvas.height / 3, 30, 0, Math.PI * 2);
         ctx.fill();
         
         const texture = new THREE.CanvasTexture(canvas);
@@ -1177,13 +954,12 @@ class ChristmasTreeApp {
     addPhotoToScene(texture) {
         // 检查照片数量限制
         if (this.photos.length >= this.settings.maxPhotos) {
-            // 移除最旧的照片
             const oldPhoto = this.photos.shift();
             this.mainGroup.remove(oldPhoto.mesh);
             this.particles = this.particles.filter(p => p !== oldPhoto);
         }
         
-        const frameScale = this.isMobile ? 0.7 : 1.0;
+        const frameScale = this.deviceInfo.isMobile ? 0.7 : 1.0;
         
         // 创建相框
         const frameGeometry = new THREE.BoxGeometry(3.5 * frameScale, 4.5 * frameScale, 0.3 * frameScale);
@@ -1203,27 +979,26 @@ class ChristmasTreeApp {
         const photo = new THREE.Mesh(photoGeometry, photoMaterial);
         photo.position.z = 0.16 * frameScale;
         
-        // 组合相框和照片
+        // 组合
         const photoGroup = new THREE.Group();
         photoGroup.add(frame);
         photoGroup.add(photo);
         
         // 随机位置
         const angle = Math.random() * Math.PI * 2;
-        const radius = (this.isMobile ? 10 : 15) + Math.random() * (this.isMobile ? 5 : 10);
+        const radius = (this.deviceInfo.isMobile ? 10 : 15) + Math.random() * 10;
         photoGroup.position.set(
             Math.cos(angle) * radius,
-            (Math.random() - 0.5) * (this.isMobile ? 10 : 15),
+            (Math.random() - 0.5) * 15,
             Math.sin(angle) * radius
         );
         
         // 随机旋转
         photoGroup.rotation.y = Math.random() * Math.PI * 2;
         
-        // 存储照片数据
+        // 存储
         const photoParticle = {
             mesh: photoGroup,
-            type: 'PHOTO',
             basePosition: photoGroup.position.clone(),
             targetPosition: new THREE.Vector3(),
             velocity: new THREE.Vector3(),
@@ -1236,13 +1011,14 @@ class ChristmasTreeApp {
         this.photos.push(photoParticle);
         this.mainGroup.add(photoGroup);
         
-        // 更新照片计数器
+        // 更新计数器
         this.updatePhotoCounter();
     }
     
     updatePhotoCounter() {
-        if (this.uiElements.photoCount) {
-            this.uiElements.photoCount.textContent = this.photos.length;
+        const photoCount = document.getElementById('photoCount');
+        if (photoCount) {
+            photoCount.textContent = this.photos.length;
         }
     }
     
@@ -1251,8 +1027,8 @@ class ChristmasTreeApp {
         
         if (mode === 'TREE') {
             // 圣诞树模式 - 螺旋圆锥体
-            const maxRadius = this.isMobile ? 8 : 12;
-            const height = this.isMobile ? 18 : 25;
+            const maxRadius = this.deviceInfo.isMobile ? 8 : 12;
+            const height = this.deviceInfo.isMobile ? 18 : 25;
             
             this.particles.forEach((particle, i) => {
                 if (particle.isPhoto) return;
@@ -1267,13 +1043,13 @@ class ChristmasTreeApp {
                     y,
                     Math.sin(angle) * radius
                 );
-                particle.scale = this.isMobile ? 0.8 : 1;
+                particle.scale = this.deviceInfo.isMobile ? 0.8 : 1;
             });
             
         } else if (mode === 'SCATTER') {
             // 散落模式 - 球体分布
-            const minRadius = this.isMobile ? 6 : 8;
-            const maxRadius = this.isMobile ? 15 : 20;
+            const minRadius = this.deviceInfo.isMobile ? 6 : 8;
+            const maxRadius = this.deviceInfo.isMobile ? 15 : 20;
             
             this.particles.forEach((particle) => {
                 if (particle.isPhoto) return;
@@ -1284,38 +1060,36 @@ class ChristmasTreeApp {
                 
                 particle.targetPosition.set(
                     radius * Math.sin(phi) * Math.cos(theta),
-                    (Math.random() - 0.5) * maxRadius * (this.isMobile ? 1.2 : 1.5),
+                    (Math.random() - 0.5) * maxRadius * 1.5,
                     radius * Math.sin(phi) * Math.sin(theta)
                 );
-                particle.scale = (this.isMobile ? 0.6 : 0.8) + Math.random() * (this.isMobile ? 0.3 : 0.4);
+                particle.scale = 0.8 + Math.random() * 0.4;
             });
             
         } else if (mode === 'FOCUS') {
-            // 聚焦模式 - 突出显示一张照片
+            // 聚焦模式
             if (this.photos.length > 0) {
                 const targetPhoto = this.photos[Math.floor(Math.random() * this.photos.length)];
                 
-                targetPhoto.targetPosition.set(0, 2, this.isMobile ? 25 : 35);
-                targetPhoto.scale = this.isMobile ? 3.5 : 4.5;
+                targetPhoto.targetPosition.set(0, 2, this.deviceInfo.isMobile ? 25 : 35);
+                targetPhoto.scale = this.deviceInfo.isMobile ? 3.5 : 4.5;
                 
-                const minRadius = this.isMobile ? 8 : 10;
-                const maxRadius = this.isMobile ? 20 : 25;
+                const minRadius = this.deviceInfo.isMobile ? 8 : 10;
+                const maxRadius = this.deviceInfo.isMobile ? 20 : 25;
                 
                 this.particles.forEach((particle) => {
                     if (particle === targetPhoto) return;
                     
                     if (particle.isPhoto) {
-                        // 其他照片移到外围
                         const angle = Math.random() * Math.PI * 2;
-                        const radius = (this.isMobile ? 15 : 20) + Math.random() * 10;
+                        const radius = (this.deviceInfo.isMobile ? 15 : 20) + Math.random() * 10;
                         particle.targetPosition.set(
                             Math.cos(angle) * radius,
-                            (Math.random() - 0.5) * (this.isMobile ? 8 : 10),
+                            (Math.random() - 0.5) * 10,
                             Math.sin(angle) * radius
                         );
-                        particle.scale = this.isMobile ? 0.8 : 1;
+                        particle.scale = this.deviceInfo.isMobile ? 0.8 : 1;
                     } else {
-                        // 粒子散开作为背景
                         const radius = minRadius + Math.random() * (maxRadius - minRadius);
                         const theta = Math.random() * Math.PI * 2;
                         const phi = Math.acos(2 * Math.random() - 1);
@@ -1325,7 +1099,7 @@ class ChristmasTreeApp {
                             (Math.random() - 0.5) * maxRadius,
                             radius * Math.sin(phi) * Math.sin(theta)
                         );
-                        particle.scale = (this.isMobile ? 0.4 : 0.5) + Math.random() * (this.isMobile ? 0.3 : 0.5);
+                        particle.scale = 0.5 + Math.random() * 0.5;
                     }
                 });
             }
@@ -1336,27 +1110,32 @@ class ChristmasTreeApp {
         this.STATE.mode = mode;
         
         // 更新UI
+        const modeText = document.getElementById('modeText');
+        const modeSubtext = document.getElementById('modeSubtext');
+        const modeIcon = document.getElementById('modeIcon');
+        
         switch (mode) {
             case 'TREE':
-                this.uiElements.modeText.textContent = '圣诞树模式';
-                this.uiElements.modeSubtext.textContent = '粒子排列为圣诞树形状';
-                this.uiElements.modeIcon.textContent = '🎄';
+                modeText.textContent = '圣诞树模式';
+                modeSubtext.textContent = '粒子排列为圣诞树形状';
+                modeIcon.textContent = '🎄';
                 break;
             case 'SCATTER':
-                this.uiElements.modeText.textContent = '散落模式';
-                this.uiElements.modeSubtext.textContent = '粒子随机散布在空中';
-                this.uiElements.modeIcon.textContent = '❄️';
+                modeText.textContent = '散落模式';
+                modeSubtext.textContent = '粒子随机散布在空中';
+                modeIcon.textContent = '❄️';
                 break;
             case 'FOCUS':
-                this.uiElements.modeText.textContent = '聚焦模式';
-                this.uiElements.modeSubtext.textContent = '突出显示一张回忆照片';
-                this.uiElements.modeIcon.textContent = '✨';
+                modeText.textContent = '聚焦模式';
+                modeSubtext.textContent = '突出显示一张回忆照片';
+                modeIcon.textContent = '✨';
                 break;
         }
         
         // 更新模式按钮状态
-        if (this.uiElements.modeControls) {
-            Array.from(this.uiElements.modeControls.children).forEach(btn => {
+        const modeControls = document.getElementById('modeControls');
+        if (modeControls) {
+            Array.from(modeControls.children).forEach(btn => {
                 btn.dataset.active = (btn.dataset.mode === mode).toString();
             });
         }
@@ -1369,24 +1148,22 @@ class ChristmasTreeApp {
         // 窗口大小调整
         window.addEventListener('resize', this.onWindowResize.bind(this));
         
-        // 横竖屏切换
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.onWindowResize(), 200);
-        });
-        
         // 键盘控制
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
         
         // 文件上传
-        this.uiElements.uploadBtn?.addEventListener('click', () => {
-            this.uiElements.fileInput.click();
-        });
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
         
-        this.uiElements.fileInput?.addEventListener('change', this.handleFileUpload.bind(this));
+        if (uploadBtn && fileInput) {
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', this.handleFileUpload.bind(this));
+        }
         
         // 模式切换按钮
-        if (this.uiElements.modeControls) {
-            Array.from(this.uiElements.modeControls.children).forEach(btn => {
+        const modeControls = document.getElementById('modeControls');
+        if (modeControls) {
+            Array.from(modeControls.children).forEach(btn => {
                 btn.addEventListener('click', () => {
                     const mode = btn.dataset.mode;
                     if (mode) this.setMode(mode);
@@ -1395,48 +1172,77 @@ class ChristmasTreeApp {
         }
         
         // 设置面板
-        this.uiElements.settingsToggle?.addEventListener('click', () => {
-            const content = this.uiElements.settingsContent;
-            content.style.display = content.style.display === 'block' ? 'none' : 'block';
-        });
+        const settingsToggle = document.getElementById('settingsToggle');
+        const settingsContent = document.getElementById('settingsContent');
+        if (settingsToggle && settingsContent) {
+            settingsToggle.addEventListener('click', () => {
+                settingsContent.style.display = 
+                    settingsContent.style.display === 'block' ? 'none' : 'block';
+            });
+        }
         
         // 性能警告按钮
-        this.uiElements.continueBtn?.addEventListener('click', () => {
-            this.uiElements.performanceWarning.style.display = 'none';
-        });
+        const continueBtn = document.getElementById('continueBtn');
+        const lightweightBtn = document.getElementById('lightweightBtn');
+        const performanceWarning = document.getElementById('performanceWarning');
         
-        this.uiElements.lightweightBtn?.addEventListener('click', () => {
-            this.enableLightweightMode();
-            this.uiElements.performanceWarning.style.display = 'none';
-        });
+        if (continueBtn && performanceWarning) {
+            continueBtn.addEventListener('click', () => {
+                performanceWarning.style.display = 'none';
+            });
+        }
+        
+        if (lightweightBtn && performanceWarning) {
+            lightweightBtn.addEventListener('click', () => {
+                this.enableLightweightMode();
+                performanceWarning.style.display = 'none';
+            });
+        }
         
         // 设备提示关闭
-        this.uiElements.closeHint?.addEventListener('click', () => {
-            this.uiElements.deviceHint.style.display = 'none';
-        });
+        const closeHint = document.getElementById('closeHint');
+        const deviceHint = document.getElementById('deviceHint');
+        if (closeHint && deviceHint) {
+            closeHint.addEventListener('click', () => {
+                deviceHint.style.display = 'none';
+            });
+        }
         
         // 移动端快捷按钮
-        this.uiElements.quickHide?.addEventListener('click', () => {
-            this.uiContainer.classList.toggle('ui-hidden');
-        });
+        const quickHide = document.getElementById('quickHide');
+        const quickPhoto = document.getElementById('quickPhoto');
+        const quickReset = document.getElementById('quickReset');
         
-        this.uiElements.quickPhoto?.addEventListener('click', () => {
-            this.uiElements.fileInput.click();
-        });
+        if (quickHide) {
+            quickHide.addEventListener('click', () => {
+                document.getElementById('uiContainer').classList.toggle('ui-hidden');
+            });
+        }
         
-        this.uiElements.quickReset?.addEventListener('click', () => {
-            this.resetView();
-        });
+        if (quickPhoto && fileInput) {
+            quickPhoto.addEventListener('click', () => fileInput.click());
+        }
+        
+        if (quickReset) {
+            quickReset.addEventListener('click', () => this.resetView());
+        }
         
         // 底部按钮
-        this.uiElements.toggleFullscreen?.addEventListener('click', this.toggleFullscreen.bind(this));
-        this.uiElements.toggleMute?.addEventListener('click', this.toggleMute.bind(this));
-        this.uiElements.showHelp?.addEventListener('click', this.showHelp.bind(this));
+        const toggleFullscreen = document.getElementById('toggleFullscreen');
+        const toggleMute = document.getElementById('toggleMute');
+        const showHelp = document.getElementById('showHelp');
         
-        // 防止手势缩放
-        document.addEventListener('gesturestart', e => e.preventDefault());
-        document.addEventListener('gesturechange', e => e.preventDefault());
-        document.addEventListener('gestureend', e => e.preventDefault());
+        if (toggleFullscreen) {
+            toggleFullscreen.addEventListener('click', this.toggleFullscreen.bind(this));
+        }
+        
+        if (toggleMute) {
+            toggleMute.addEventListener('click', this.toggleMute.bind(this));
+        }
+        
+        if (showHelp) {
+            showHelp.addEventListener('click', this.showHelp.bind(this));
+        }
         
         // 页面可见性
         document.addEventListener('visibilitychange', () => {
@@ -1451,11 +1257,9 @@ class ChristmasTreeApp {
     handleKeyDown(event) {
         switch (event.key.toLowerCase()) {
             case 'h':
-                // 隐藏/显示UI
-                this.uiElements.uiContainer.classList.toggle('ui-hidden');
+                document.getElementById('uiContainer').classList.toggle('ui-hidden');
                 break;
             case ' ':
-                // 空格键切换模式
                 event.preventDefault();
                 const modes = ['TREE', 'SCATTER', 'FOCUS'];
                 const currentIndex = modes.indexOf(this.STATE.mode);
@@ -1463,7 +1267,6 @@ class ChristmasTreeApp {
                 this.setMode(modes[nextIndex]);
                 break;
             case 'escape':
-                // ESC重置视图
                 this.resetView();
                 break;
         }
@@ -1473,43 +1276,37 @@ class ChristmasTreeApp {
         const file = event.target.files[0];
         if (!file) return;
         
-        // 检查文件大小（移动端限制）
-        if (this.isMobile && file.size > 5 * 1024 * 1024) {
+        // 检查文件大小
+        if (this.deviceInfo.isMobile && file.size > 5 * 1024 * 1024) {
             alert('文件大小超过5MB，请选择较小的图片。');
             return;
         }
         
         const reader = new FileReader();
         reader.onload = (ev) => {
-            new THREE.TextureLoader().load(ev.target.result, (texture) => {
-                texture.colorSpace = THREE.SRGBColorSpace;
-                this.addPhotoToScene(texture);
-            });
+            const texture = new THREE.TextureLoader().load(ev.target.result);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            this.addPhotoToScene(texture);
         };
         reader.readAsDataURL(file);
         
-        // 重置文件输入
         event.target.value = '';
     }
     
     onWindowResize() {
-        // 更新相机
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         
-        // 更新渲染器大小
         this.renderer.setSize(
             window.innerWidth * this.settings.renderScale,
             window.innerHeight * this.settings.renderScale
         );
         
-        // 更新后期处理
         this.composer.setSize(
             window.innerWidth * this.settings.renderScale,
             window.innerHeight * this.settings.renderScale
         );
         
-        // 更新Bloom Pass分辨率
         if (this.composer.passes[1] instanceof UnrealBloomPass) {
             this.composer.passes[1].resolution = new THREE.Vector2(
                 window.innerWidth * this.settings.renderScale,
@@ -1519,32 +1316,28 @@ class ChristmasTreeApp {
     }
     
     resetView() {
-        // 重置相机位置
-        if (this.isMobile) {
+        if (this.deviceInfo.isMobile) {
             this.camera.position.set(0, 3, 35);
         } else {
             this.camera.position.set(0, 2, 50);
         }
         
-        // 重置控制器
         if (this.controls) {
             this.controls.reset();
         }
         
-        // 重置触摸旋转
         if (this.touchController) {
             this.touchController.touchRotation = { x: 0, y: 0 };
         }
         
-        // 重置手势数据
         this.STATE.gestureData = { rotationX: 0, rotationY: 0 };
     }
     
     toggleFullscreen() {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(console.error);
+            document.documentElement.requestFullscreen();
         } else {
-            document.exitFullscreen().catch(console.error);
+            document.exitFullscreen();
         }
     }
     
@@ -1557,12 +1350,14 @@ class ChristmasTreeApp {
     
     showHelp() {
         alert(`使用说明：
+
 🎄 桌面端：
    - 鼠标拖动旋转场景
    - 滚轮缩放
    - H键：隐藏/显示UI
    - 空格键：切换模式
    - ESC键：重置视图
+   - 手势控制（需摄像头）：捏合/握拳/张开
 
 📱 移动端：
    - 单指拖动旋转场景
@@ -1570,22 +1365,11 @@ class ChristmasTreeApp {
    - 长按：切换模式
    - 双击：隐藏/显示UI
 
-✨ 手势识别（需摄像头）：
-   - 捏合手指：聚焦模式
-   - 握拳：圣诞树模式
-   - 张开手掌：散落模式`);
-    }
-    
-    showDeviceHint() {
-        if (this.uiElements.deviceHint) {
-            this.uiElements.deviceHint.style.display = 'block';
-            setTimeout(() => {
-                this.uiElements.deviceHint.style.opacity = '0';
-                setTimeout(() => {
-                    this.uiElements.deviceHint.style.display = 'none';
-                }, 500);
-            }, 5000);
-        }
+✨ 功能：
+   - 点击"添加回忆照片"上传图片
+   - 三种模式：圣诞树/散落/聚焦
+   - 自动性能优化
+   - 本地运行，无需网络`);
     }
     
     enableLightweightMode() {
@@ -1594,7 +1378,6 @@ class ChristmasTreeApp {
             ...this.settings,
             particleCount: 500,
             mainParticleCount: 200,
-            dustParticleCount: 300,
             enableBloom: false,
             enableShadows: false,
             antialias: false,
@@ -1602,12 +1385,12 @@ class ChristmasTreeApp {
             renderScale: 0.7
         };
         
-        // 重新初始化
+        // 重新创建粒子
         this.reinitialize();
     }
     
     reinitialize() {
-        // 清理现有资源
+        // 清理现有粒子
         this.particles.forEach(particle => {
             this.mainGroup.remove(particle.mesh);
             particle.mesh.geometry.dispose();
@@ -1616,10 +1399,9 @@ class ChristmasTreeApp {
         this.particles = [];
         this.photos = [];
         
-        // 重新创建粒子
+        // 重新创建
         this.createParticles();
-        
-        // 更新UI
+        this.createDefaultPhoto();
         this.updatePhotoCounter();
     }
     
@@ -1636,22 +1418,28 @@ class ChristmasTreeApp {
     animate() {
         requestAnimationFrame(() => this.animate());
         
-        // 性能监控
-        this.performanceMonitor.update();
+        if (!this.STATE.isAnimating) return;
         
-        // 低性能设备跳帧渲染
-        if (this.settings.performanceLevel === 'low') {
-            this.frameCounter++;
-            if (this.frameCounter % 2 === 0) return;
+        // 性能监控
+        const perfStatus = this.performanceMonitor.update();
+        const fpsCounter = document.getElementById('fpsCounter');
+        if (fpsCounter) {
+            fpsCounter.textContent = `${this.performanceMonitor.fps} FPS`;
+            
+            // 根据FPS改变颜色
+            if (this.performanceMonitor.fps < 30) {
+                fpsCounter.style.color = '#ff4444';
+            } else if (this.performanceMonitor.fps < 45) {
+                fpsCounter.style.color = '#ffaa00';
+            } else {
+                fpsCounter.style.color = '#44ff44';
+            }
         }
         
         const delta = this.clock.getDelta();
         const time = this.clock.getElapsedTime();
         
-        // 更新FPS显示
-        this.updateFPSDisplay();
-        
-        // 应用手势控制的旋转
+        // 应用手势旋转
         if (this.gestureRecognizer.isAvailable) {
             const { rotationX, rotationY } = this.STATE.gestureData;
             this.mainGroup.rotation.y += rotationY * 0.05;
@@ -1663,8 +1451,8 @@ class ChristmasTreeApp {
             this.touchController.update();
         }
         
-        // 动画粒子到目标位置
-        const animationSpeed = this.isMobile ? 0.03 : 0.05;
+        // 动画粒子
+        const animationSpeed = this.deviceInfo.isMobile ? 0.03 : 0.05;
         
         this.particles.forEach((particle, index) => {
             // 低性能设备跳过部分粒子
@@ -1705,33 +1493,14 @@ class ChristmasTreeApp {
         }
     }
     
-    updateFPSDisplay() {
-        const fpsCounter = document.querySelector('#fpsCounter');
-        if (fpsCounter) {
-            fpsCounter.textContent = `${this.performanceMonitor.fps} FPS`;
-            
-            // 根据FPS改变颜色
-            if (this.performanceMonitor.fps < 30) {
-                fpsCounter.style.color = '#ff4444';
-            } else if (this.performanceMonitor.fps < 45) {
-                fpsCounter.style.color = '#ffaa00';
-            } else {
-                fpsCounter.style.color = '#44ff44';
-            }
-        }
-    }
-    
-    handleInitializationError(error) {
-        console.error('Application initialization error:', error);
-        
-        // 显示错误信息
-        const errorMsg = document.createElement('div');
-        errorMsg.style.cssText = `
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             color: #ff4444;
             padding: 30px;
             border-radius: 10px;
@@ -1741,16 +1510,9 @@ class ChristmasTreeApp {
             border: 2px solid #ff4444;
         `;
         
-        errorMsg.innerHTML = `
-            <h3>初始化失败</h3>
-            <p>${error.message || '未知错误'}</p>
-            <p>请尝试以下解决方案：</p>
-            <ul style="text-align: left; margin: 15px 0;">
-                <li>更新浏览器到最新版本</li>
-                <li>检查WebGL支持：<a href="https://get.webgl.org" target="_blank">get.webgl.org</a></li>
-                <li>禁用浏览器扩展程序</li>
-                <li>清理浏览器缓存</li>
-            </ul>
+        errorDiv.innerHTML = `
+            <h3>应用错误</h3>
+            <p>${message}</p>
             <button onclick="location.reload()" style="
                 background: #d4af37;
                 color: #000;
@@ -1762,7 +1524,7 @@ class ChristmasTreeApp {
             ">重新加载</button>
         `;
         
-        document.body.appendChild(errorMsg);
+        document.body.appendChild(errorDiv);
     }
     
     dispose() {
@@ -1775,9 +1537,6 @@ class ChristmasTreeApp {
             particle.mesh.material.dispose();
         });
         
-        // 清理混合器
-        this.mixers.forEach(mixer => mixer.stopAllActions());
-        
         // 清理手势识别
         this.gestureRecognizer.dispose();
         
@@ -1785,27 +1544,18 @@ class ChristmasTreeApp {
         if (this.renderer) {
             this.renderer.dispose();
         }
-        
-        // 清理后期处理
-        if (this.composer) {
-            this.composer.passes.forEach(pass => {
-                if (pass.dispose) pass.dispose();
-            });
-        }
     }
 }
 
-// 页面加载时初始化应用
-async function initApp() {
+// ==================== 启动应用 ====================
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', async () => {
     try {
         // 检查WebGL支持
-        if (!window.WebGLRenderingContext) {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) {
             throw new Error('您的浏览器不支持WebGL');
-        }
-        
-        // 检查Three.js支持
-        if (!window.THREE) {
-            throw new Error('Three.js库加载失败');
         }
         
         // 创建应用实例
@@ -1821,11 +1571,11 @@ async function initApp() {
         
         // 错误处理
         window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
+            console.error('全局错误:', event.error);
         });
         
     } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error('应用启动失败:', error);
         
         // 显示错误页面
         document.body.innerHTML = `
@@ -1849,15 +1599,6 @@ async function initApp() {
                     很抱歉，应用无法正常加载。<br>
                     错误信息：${error.message}
                 </p>
-                <div style="margin-bottom: 30px;">
-                    <h3>可能的原因：</h3>
-                    <ul style="text-align: left; margin: 15px 0;">
-                        <li>浏览器不支持WebGL或Three.js</li>
-                        <li>网络连接问题导致资源加载失败</li>
-                        <li>浏览器安全设置阻止了某些功能</li>
-                        <li>设备性能不足</li>
-                    </ul>
-                </div>
                 <div>
                     <button onclick="location.reload()" style="
                         background: #d4af37;
@@ -1869,28 +1610,8 @@ async function initApp() {
                         font-size: 16px;
                         margin: 10px;
                     ">重新加载</button>
-                    <button onclick="window.history.back()" style="
-                        background: transparent;
-                        color: #fceea7;
-                        border: 1px solid #d4af37;
-                        padding: 12px 24px;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-size: 16px;
-                        margin: 10px;
-                    ">返回</button>
                 </div>
             </div>
         `;
     }
-}
-
-// 启动应用
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
-
-// 导出模块
-export { ChristmasTreeApp, DeviceDetector, PerformanceMonitor };
+});
