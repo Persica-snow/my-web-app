@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <meta name="description" content="圣诞互动粒子系统 - 使用Three.js和手势控制">
     <title>圣诞树 | 互动粒子系统</title>
     
-    <!-- Google Font -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Times+New+Roman:wght@400;700&display=swap" rel="stylesheet">
     
     <!-- Import Maps -->
     <script type="importmap">
@@ -23,80 +25,248 @@
         }
     </script>
     
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS 代码将放在这里 */
+    </style>
 </head>
-<body>
+<!-- <body> -->
     <!-- 加载器 -->
     <div class="loader" id="loader">
-        <div class="spinner"></div>
-        <div class="loader-text">正在加载节日魔法</div>
-    </div>
-
-    <!-- 性能提示 -->
-    <div class="performance-warning" id="performanceWarning">
-        <div style="font-size: 18px; margin-bottom: 10px; color: #d4af37;">⚠️ 性能提示</div>
-        <div>您的设备可能出现性能下降，建议您：</div>
-        <div style="margin-top: 10px;">
-            1. 关闭其他应用<br>
-            2. 使用竖屏模式<br>
-            3. 保持设备凉爽
+        <div class="spinner">
+            <div class="spinner-inner"></div>
         </div>
-        <button id="continueBtn">继续</button>
+        <div class="loader-text">
+            <span class="loader-line">正在加载节日魔法</span>
+            <span class="loader-dots">...</span>
+        </div>
+        <div class="loader-progress" id="loaderProgress">
+            <div class="progress-bar"></div>
+        </div>
     </div>
 
-    <!-- 界面容器 -->
+    <!-- 性能提示（仅移动端低性能设备显示） -->
+    <div class="performance-warning" id="performanceWarning">
+        <div class="warning-icon">⚡</div>
+        <div class="warning-title">性能提示</div>
+        <div class="warning-text">
+            您的设备可能出现性能下降，建议：
+            <ul>
+                <li>关闭其他应用程序</li>
+                <li>使用竖屏模式</li>
+                <li>保持设备凉爽</li>
+                <li>连接电源以获得最佳体验</li>
+            </ul>
+        </div>
+        <div class="warning-actions">
+            <button class="warning-btn primary" id="continueBtn">继续体验</button>
+            <button class="warning-btn secondary" id="lightweightBtn">轻量模式</button>
+        </div>
+    </div>
+
+    <!-- 设备检测提示 -->
+    <div class="device-hint" id="deviceHint">
+        <div class="hint-content">
+            <div class="hint-icon">📱</div>
+            <div class="hint-text">检测到移动设备，已启用触摸控制</div>
+            <button class="hint-close" id="closeHint">×</button>
+        </div>
+    </div>
+
+    <!-- 主UI容器 -->
     <div class="ui-container" id="uiContainer">
-        <header>
-            <h1>圣诞快乐</h1>
+        <!-- 头部区域 -->
+        <header class="ui-header">
+            <h1 class="title-gradient">圣诞快乐</h1>
+            <div class="subtitle">互动粒子系统</div>
         </header>
 
-        <!-- 操作说明 -->
-        <div class="instructions">
-            <p id="desktopInstruction">手势互动：捏合聚焦，握拳生成树，张开手掌散射粒子</p>
-            <p id="mobileInstruction" style="display: none;">单指拖动旋转 · 双指捏合聚焦 · 点击切换模式</p>
-            <div class="gesture-hint">
-                <div class="gesture-item">
-                    <div class="gesture-icon">✌️</div>
-                    <div class="gesture-text">捏合聚焦</div>
-                </div>
-                <div class="gesture-item">
-                    <div class="gesture-icon">✊</div>
-                    <div class="gesture-text">握拳生成树</div>
-                </div>
-                <div class="gesture-item">
-                    <div class="gesture-icon">✋</div>
-                    <div class="gesture-text">张开散射</div>
+        <!-- 操作说明区域 -->
+        <div class="instructions-container">
+            <!-- 桌面端说明 -->
+            <div class="instruction-desktop" id="desktopInstruction">
+                <p class="instruction-text">手势互动：捏合聚焦 ✨ | 握拳生成树 🎄 | 张开手掌散射 ❄️</p>
+                <p class="instruction-tip">按 H 键隐藏控制面板</p>
+            </div>
+            
+            <!-- 移动端说明 -->
+            <div class="instruction-mobile" id="mobileInstruction">
+                <div class="mobile-instruction-content">
+                    <div class="instruction-section">
+                        <div class="instruction-icon">👆</div>
+                        <div class="instruction-text">单指拖动旋转场景</div>
+                    </div>
+                    <div class="instruction-section">
+                        <div class="instruction-icon">✌️</div>
+                        <div class="instruction-text">双指捏合聚焦照片</div>
+                    </div>
+                    <div class="instruction-section">
+                        <div class="instruction-icon">👊</div>
+                        <div class="instruction-text">长按切换粒子模式</div>
+                    </div>
+                    <div class="instruction-section">
+                        <div class="instruction-icon">👉</div>
+                        <div class="instruction-text">双击隐藏/显示控制</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 模式指示器 -->
-        <div class="mode-indicator">
-            <div class="mode-text" id="modeText">圣诞树模式</div>
-            <div class="mode-subtext" id="modeSubtext">粒子排列为圣诞树形状</div>
+        <!-- 模式状态指示器 -->
+        <div class="mode-indicator" id="modeIndicator">
+            <div class="mode-icon" id="modeIcon">🎄</div>
+            <div class="mode-info">
+                <div class="mode-title" id="modeText">圣诞树模式</div>
+                <div class="mode-subtitle" id="modeSubtext">粒子排列为圣诞树形状</div>
+            </div>
+            <div class="mode-badge" id="fpsCounter">60 FPS</div>
         </div>
 
-        <!-- 上传控件 -->
-        <div class="upload-wrapper">
-            <button class="upload-btn" id="uploadBtn">添加回忆照片</button>
-            <div class="hint-text">双击隐藏控制面板</div>
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <!-- 上传区域 -->
+            <div class="upload-section">
+                <div class="upload-wrapper">
+                    <button class="upload-btn glass-effect" id="uploadBtn">
+                        <span class="upload-icon">📷</span>
+                        <span class="upload-text">添加回忆照片</span>
+                    </button>
+                    <div class="upload-hint">
+                        <span class="hint-icon">💡</span>
+                        <span class="hint-text">支持 JPG、PNG 格式，建议尺寸小于 5MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 模式切换按钮（移动端） -->
+            <div class="mode-controls" id="modeControls">
+                <button class="mode-btn" data-mode="TREE" data-active="true">
+                    <span class="mode-btn-icon">🎄</span>
+                    <span class="mode-btn-text">圣诞树</span>
+                </button>
+                <button class="mode-btn" data-mode="SCATTER">
+                    <span class="mode-btn-icon">❄️</span>
+                    <span class="mode-btn-text">散落</span>
+                </button>
+                <button class="mode-btn" data-mode="FOCUS">
+                    <span class="mode-btn-icon">✨</span>
+                    <span class="mode-btn-text">聚焦</span>
+                </button>
+            </div>
+
+            <!-- 设置面板 -->
+            <div class="settings-panel">
+                <div class="settings-toggle" id="settingsToggle">
+                    <span class="settings-icon">⚙️</span>
+                    <span class="settings-text">设置</span>
+                </div>
+                <div class="settings-content" id="settingsContent">
+                    <div class="settings-section">
+                        <label class="settings-label">
+                            <span class="label-text">粒子质量</span>
+                            <select class="quality-select" id="qualitySelect">
+                                <option value="low">低（适合移动端）</option>
+                                <option value="medium" selected>中（平衡）</option>
+                                <option value="high">高（桌面端）</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-section">
+                        <label class="settings-label">
+                            <input type="checkbox" id="enableBloom" checked>
+                            <span class="checkbox-custom"></span>
+                            <span class="label-text">启用辉光效果</span>
+                        </label>
+                    </div>
+                    <div class="settings-section">
+                        <label class="settings-label">
+                            <input type="checkbox" id="enableShadows" checked>
+                            <span class="checkbox-custom"></span>
+                            <span class="label-text">启用阴影</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示文本 -->
+        <div class="hint-container">
+            <div class="hint-item">
+                <span class="hint-key">H</span>
+                <span class="hint-action">隐藏/显示界面</span>
+            </div>
+            <div class="hint-item">
+                <span class="hint-key">ESC</span>
+                <span class="hint-action">重置视图</span>
+            </div>
+            <div class="hint-item">
+                <span class="hint-key">空格</span>
+                <span class="hint-action">切换模式</span>
+            </div>
+        </div>
+
+        <!-- 移动端快捷操作栏 -->
+        <div class="mobile-quickbar" id="mobileQuickbar">
+            <button class="quick-btn" id="quickHide">
+                <span class="quick-icon">👁️</span>
+                <span class="quick-text">隐藏</span>
+            </button>
+            <button class="quick-btn" id="quickPhoto">
+                <span class="quick-icon">📸</span>
+                <span class="quick-text">拍照</span>
+            </button>
+            <button class="quick-btn" id="quickReset">
+                <span class="quick-icon">🔄</span>
+                <span class="quick-text">重置</span>
+            </button>
         </div>
     </div>
 
-    <!-- 摄像头容器 -->
-    <div class="webcam-container">
-        <video id="webcam" autoplay playsinline></video>
+    <!-- 摄像头容器（用于手势识别） -->
+    <div class="webcam-container" id="webcamContainer">
+        <video id="webcam" autoplay playsinline muted></video>
         <canvas id="outputCanvas"></canvas>
+        <div class="webcam-status" id="webcamStatus">
+            <div class="status-indicator"></div>
+            <span class="status-text">摄像头准备中...</span>
+        </div>
     </div>
 
     <!-- 隐藏的文件输入 -->
-    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
+
+    <!-- 照片计数 -->
+    <div class="photo-counter" id="photoCounter">
+        <span class="counter-icon">🖼️</span>
+        <span class="counter-text">照片: <span id="photoCount">1</span>/10</span>
+    </div>
 
     <!-- Three.js 画布 -->
-    <canvas id="canvas3d"></canvas>
+    <canvas id="canvas3d" class="webgl-canvas"></canvas>
 
-    <!-- JavaScript -->
-    <script type="module" src="script.js"></script>
+    <!-- 触摸提示（临时显示） -->
+    <div class="touch-hint" id="touchHint">
+        <div class="touch-hint-content">
+            <div class="touch-hint-text">试试拖动旋转场景</div>
+            <div class="touch-hint-arrow">👇</div>
+        </div>
+    </div>
+
+    <!-- 底部信息栏 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-text">🎄 节日快乐 · 技术支持: Three.js & MediaPipe 🎅</div>
+            <div class="footer-links">
+                <button class="footer-link" id="toggleFullscreen">全屏</button>
+                <button class="footer-link" id="toggleMute">静音</button>
+                <button class="footer-link" id="showHelp">帮助</button>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        // JavaScript 代码将通过ES Module引入
+        // 这里只保留模块引入，具体实现在单独的JS文件中
+        import './script.js';
+    </script>
 </body>
 </html>
