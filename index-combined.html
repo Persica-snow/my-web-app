@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>圣诞树 | 互动粒子系统</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif;
+            background: #000000;
+            color: #fceea7;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        /* 加载器 */
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.8s ease;
+        }
+
+        .loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(212, 175, 55, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #d4af37;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            font-size: 18px;
+            color: #d4af37;
+            letter-spacing: 2px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        /* UI容器 */
+        .ui-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .ui-container.ui-hidden {
+            opacity: 0;
+        }
+
+        .ui-container > * {
+            pointer-events: auto;
+        }
+
+        /* 标题 */
+        header {
+            text-align: center;
+            padding-top: 30px;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 56px;
+            background: linear-gradient(to bottom, #fceea7, #d4af37);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            margin-bottom: 10px;
+        }
+
+        /* 上传按钮 */
+        .upload-wrapper {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .upload-btn {
+            background: rgba(212, 175, 55, 0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid #d4af37;
+            color: #fceea7;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-family: 'Cinzel', serif;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .upload-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+        }
+
+        .hint-text {
+            font-size: 16px;
+            color: #d4af37;
+            opacity: 0.8;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        /* 模式指示器 */
+        .mode-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #d4af37;
+            backdrop-filter: blur(5px);
+            min-width: 200px;
+        }
+
+        .mode-text {
+            font-size: 16px;
+            color: #fceea7;
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+        }
+
+        .mode-subtext {
+            font-size: 14px;
+            color: #d4af37;
+        }
+
+        /* 操作说明 */
+        .instructions {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 80%;
+            max-width: 800px;
+        }
+
+        .instructions p {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #d4af37;
+            line-height: 1.4;
+        }
+
+        /* Three.js画布 */
+        #canvas3d {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            outline: none;
+            touch-action: none;
+        }
+
+        /* 移动端适配 */
+        @media screen and (max-width: 768px) {
+            h1 {
+                font-size: 32px !important;
+                padding-top: 20px;
+            }
+            
+            .instructions {
+                top: 80px;
+            }
+            
+            .instructions p {
+                font-size: 14px;
+            }
+            
+            .upload-wrapper {
+                bottom: 70px;
+                width: 95%;
+            }
+            
+            .upload-btn {
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+            
+            .hint-text {
+                font-size: 14px;
+            }
+            
+            .mode-indicator {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                padding: 8px 12px;
+                text-align: center;
+            }
+            
+            .mode-text {
+                font-size: 14px;
+            }
+            
+            .mode-subtext {
+                font-size: 12px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            h1 {
+                font-size: 28px !important;
+                margin-bottom: 5px;
+            }
+            
+            .upload-wrapper {
+                bottom: 60px;
+            }
+            
+            .upload-btn {
+                padding: 10px 15px;
+                font-size: 15px;
+            }
+        }
+
+        @media screen and (orientation: landscape) and (max-height: 600px) {
+            h1 {
+                font-size: 24px !important;
+                padding-top: 5px;
+            }
+            
+            .instructions {
+                top: 60px;
+            }
+            
+            .instructions p {
+                font-size: 12px;
+            }
+            
+            .upload-wrapper {
+                bottom: 50px;
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载器 -->
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">正在加载节日魔法</div>
+    </div>
+
+    <!-- 主UI容器 -->
+    <div class="ui-container" id="uiContainer">
+        <header>
+            <h1>圣诞快乐</h1>
+        </header>
+
+        <!-- 操作说明 -->
+        <div class="instructions">
+            <p id="desktopInstruction">按 H 键隐藏控制面板，空格键切换模式</p>
+            <p id="mobileInstruction" style="display: none;">单指拖动旋转场景，双击隐藏控制面板</p>
+        </div>
+
+        <!-- 模式指示器 -->
+        <div class="mode-indicator">
+            <div class="mode-text" id="modeText">圣诞树模式</div>
+            <div class="mode-subtext" id="modeSubtext">粒子排列为圣诞树形状</div>
+        </div>
+
+        <!-- 上传控件 -->
+        <div class="upload-wrapper">
+            <button class="upload-btn" id="uploadBtn">添加回忆照片</button>
+            <div class="hint-text">按 H 键隐藏控制面板</div>
+        </div>
+    </div>
+
+    <!-- 隐藏的文件输入 -->
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+
+    <!-- Three.js 画布 -->
+    <canvas id="canvas3d"></canvas>
+
+    <script>
+        // 设备检测
+        const deviceDetector = {
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+            isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+            isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+            getPerformanceLevel() {
+                const memory = navigator.deviceMemory || 4;
+                const cores = navigator.hardwareConcurrency || 4;
+                return memory < 4 || cores < 4 ? 'low' : 'medium';
+            }
+        };
+
+        // 主应用类
+        class ChristmasTreeApp {
+            constructor() {
+                // 设备检测
+                this.isMobile = deviceDetector.isMobile || deviceDetector.isTouchDevice;
+                this.performanceLevel = deviceDetector.getPerformanceLevel();
+                
+                // 性能设置
+                this.settings = {
+                    particleCount: this.isMobile ? 1200 : 2000,
+                    mainParticleCount: this.isMobile ? 400 : 800,
+                    enableBloom: this.performanceLevel !== 'low',
+                    enableShadows: this.performanceLevel !== 'low',
+                    pixelRatio: this.isMobile ? 1.0 : Math.min(1.5, window.devicePixelRatio),
+                    renderScale: this.isMobile ? 0.9 : 1.0
+                };
+                
+                // Three.js 核心对象
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.clock = new THREE.Clock();
+                
+                // 粒子系统
+                this.mainGroup = new THREE.Group();
+                this.particles = [];
+                this.photos = [];
+                
+                // 状态管理
+                this.STATE = {
+                    mode: 'TREE', // TREE, SCATTER
+                    isAnimating: true
+                };
+                
+                // UI 元素
+                this.loader = document.getElementById('loader');
+                this.uiContainer = document.getElementById('uiContainer');
+                this.modeText = document.getElementById('modeText');
+                this.modeSubtext = document.getElementById('modeSubtext');
+                this.uploadBtn = document.getElementById('uploadBtn');
+                this.fileInput = document.getElementById('fileInput');
+                this.desktopInstruction = document.getElementById('desktopInstruction');
+                this.mobileInstruction = document.getElementById('mobileInstruction');
+                
+                // 根据设备显示不同的使用说明
+                if (this.isMobile) {
+                    this.desktopInstruction.style.display = 'none';
+                    this.mobileInstruction.style.display = 'block';
+                }
+                
+                // 初始化应用
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    // 检查Three.js是否加载成功
+                    if (typeof THREE === 'undefined') {
+                        throw new Error('Three.js库加载失败');
+                    }
+                    
+                    // 检查WebGL支持
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                    if (!gl) {
+                        throw new Error('您的浏览器不支持WebGL');
+                    }
+                    
+                    // 初始化Three.js
+                    this.initThreeJS();
+                    
+                    // 创建粒子
+                    this.createParticles();
+                    
+                    // 创建默认照片
+                    this.createDefaultPhoto();
+                    
+                    // 设置事件监听器
+                    this.setupEventListeners();
+                    
+                    // 开始动画
+                    this.animate();
+                    
+                    // 3秒后隐藏加载器
+                    setTimeout(() => {
+                        this.loader.classList.add('hidden');
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('初始化失败:', error);
+                    this.showError(error.message);
+                }
+            }
+            
+            initThreeJS() {
+                // 场景
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x000000);
+                
+                // 相机
+                this.camera = new THREE.PerspectiveCamera(
+                    60,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    1000
+                );
+                
+                if (this.isMobile) {
+                    this.camera.position.set(0, 3, 35);
+                    this.camera.fov = 65;
+                } else {
+                    this.camera.position.set(0, 2, 50);
+                }
+                
+                // 渲染器
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: document.getElementById('canvas3d'),
+                    antialias: this.performanceLevel !== 'low',
+                    alpha: false,
+                    powerPreference: 'default'
+                });
+                
+                this.renderer.setPixelRatio(this.settings.pixelRatio);
+                this.renderer.setSize(
+                    window.innerWidth * this.settings.renderScale,
+                    window.innerHeight * this.settings.renderScale
+                );
+                
+                this.renderer.toneMapping = THREE.ReinhardToneMapping;
+                this.renderer.toneMappingExposure = this.isMobile ? 1.8 : 2.2;
+                this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+                this.renderer.shadowMap.enabled = this.settings.enableShadows;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                // 灯光
+                this.setupLights();
+                
+                // 添加到场景
+                this.scene.add(this.mainGroup);
+            }
+            
+            setupLights() {
+                // 环境光
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambientLight);
+                
+                // 点光源
+                const pointLight = new THREE.PointLight(0xff6600, 2, 100);
+                pointLight.position.set(5, 10, 5);
+                this.scene.add(pointLight);
+                
+                // 金色聚光灯
+                const spotLight1 = new THREE.SpotLight(0xd4af37, 1000, 100, Math.PI / 6, 0.5, 1);
+                spotLight1.position.set(30, 40, 40);
+                spotLight1.castShadow = this.settings.enableShadows;
+                if (spotLight1.castShadow) {
+                    spotLight1.shadow.mapSize.width = 256;
+                    spotLight1.shadow.mapSize.height = 256;
+                }
+                this.scene.add(spotLight1);
+                
+                // 蓝色聚光灯
+                const spotLight2 = new THREE.SpotLight(0x3399ff, 600, 100, Math.PI / 6, 0.5, 1);
+                spotLight2.position.set(-30, 20, -30);
+                this.scene.add(spotLight2);
+            }
+            
+            createParticles() {
+                const colors = {
+                    gold: 0xd4af37,
+                    green: 0x1a5f1a,
+                    red: 0xff0000,
+                    cream: 0xfceea7
+                };
+                
+                // 创建材质
+                const goldMaterial = new THREE.MeshStandardMaterial({
+                    color: colors.gold,
+                    metalness: 0.8,
+                    roughness: 0.3
+                });
+                
+                const greenMaterial = new THREE.MeshStandardMaterial({
+                    color: colors.green,
+                    metalness: 0.3,
+                    roughness: 0.8
+                });
+                
+                const redMaterial = new THREE.MeshStandardMaterial({
+                    color: colors.red,
+                    metalness: 0.5,
+                    roughness: 0.4
+                });
+                
+                const dustMaterial = new THREE.MeshStandardMaterial({
+                    color: colors.cream,
+                    emissive: colors.cream,
+                    emissiveIntensity: 0.2
+                });
+                
+                // 创建主粒子
+                for (let i = 0; i < this.settings.particleCount; i++) {
+                    let geometry, material;
+                    
+                    if (i < this.settings.mainParticleCount) {
+                        // 主粒子
+                        const type = i % 4;
+                        switch(type) {
+                            case 0: // 金色盒子
+                                geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+                                material = goldMaterial;
+                                break;
+                            case 1: // 绿色盒子
+                                geometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+                                material = greenMaterial;
+                                break;
+                            case 2: // 金色球体
+                                geometry = new THREE.SphereGeometry(0.5, 16, 16);
+                                material = goldMaterial;
+                                break;
+                            case 3: // 红色球体
+                                geometry = new THREE.SphereGeometry(0.6, 16, 16);
+                                material = redMaterial;
+                                break;
+                        }
+                    } else {
+                        // 尘埃粒子
+                        geometry = new THREE.SphereGeometry(
+                            0.1 + Math.random() * 0.2,
+                            8, 8
+                        );
+                        material = dustMaterial;
+                    }
+                    
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = this.settings.enableShadows;
+                    mesh.receiveShadow = this.settings.enableShadows;
+                    
+                    const particle = {
+                        mesh,
+                        basePosition: new THREE.Vector3(),
+                        targetPosition: new THREE.Vector3(),
+                        velocity: new THREE.Vector3(
+                            (Math.random() - 0.5) * 0.02,
+                            (Math.random() - 0.5) * 0.02,
+                            (Math.random() - 0.5) * 0.02
+                        ),
+                        rotationSpeed: new THREE.Vector3(
+                            (Math.random() - 0.5) * 0.02,
+                            (Math.random() - 0.5) * 0.02,
+                            (Math.random() - 0.5) * 0.02
+                        ),
+                        scale: 1,
+                        isPhoto: false
+                    };
+                    
+                    this.particles.push(particle);
+                    this.mainGroup.add(mesh);
+                }
+                
+                // 根据当前模式初始化位置
+                this.updateParticlePositions();
+            }
+            
+            createDefaultPhoto() {
+                const canvas = document.createElement('canvas');
+                const size = this.isMobile ? 256 : 512;
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // 金色背景
+                ctx.fillStyle = '#d4af37';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 内部白色区域
+                ctx.fillStyle = '#fceea7';
+                const margin = 20;
+                ctx.fillRect(margin, margin, canvas.width - margin * 2, canvas.height - margin * 2);
+                
+                // 文字
+                ctx.fillStyle = '#1a5f1a';
+                const fontSize = this.isMobile ? 30 : 50;
+                ctx.font = `bold ${fontSize}px Cinzel`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('MERRY CHRISTMAS', canvas.width / 2, canvas.height / 2);
+                
+                // 装饰元素
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 3, this.isMobile ? 20 : 30, 0, Math.PI * 2);
+                ctx.fill();
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.colorSpace = THREE.SRGBColorSpace;
+                
+                this.addPhotoToScene(texture);
+            }
+            
+            addPhotoToScene(texture) {
+                const frameScale = this.isMobile ? 0.7 : 1.0;
+                
+                // 创建相框
+                const frameGeometry = new THREE.BoxGeometry(3.5 * frameScale, 4.5 * frameScale, 0.3 * frameScale);
+                const frameMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xd4af37,
+                    metalness: 0.9,
+                    roughness: 0.2
+                });
+                const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+                
+                // 创建照片
+                const photoGeometry = new THREE.PlaneGeometry(3 * frameScale, 4 * frameScale);
+                const photoMaterial = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide
+                });
+                const photo = new THREE.Mesh(photoGeometry, photoMaterial);
+                photo.position.z = 0.16 * frameScale;
+                
+                // 组合相框和照片
+                const photoGroup = new THREE.Group();
+                photoGroup.add(frame);
+                photoGroup.add(photo);
+                
+                // 随机位置
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 15 + Math.random() * 10;
+                photoGroup.position.set(
+                    Math.cos(angle) * radius,
+                    (Math.random() - 0.5) * 15,
+                    Math.sin(angle) * radius
+                );
+                
+                // 随机旋转
+                photoGroup.rotation.y = Math.random() * Math.PI * 2;
+                
+                // 存储照片数据
+                const photoParticle = {
+                    mesh: photoGroup,
+                    basePosition: photoGroup.position.clone(),
+                    targetPosition: new THREE.Vector3(),
+                    velocity: new THREE.Vector3(),
+                    rotationSpeed: new THREE.Vector3(),
+                    scale: 1,
+                    isPhoto: true
+                };
+                
+                this.particles.push(photoParticle);
+                this.photos.push(photoParticle);
+                this.mainGroup.add(photoGroup);
+            }
+            
+            updateParticlePositions() {
+                const mode = this.STATE.mode;
+                
+                if (mode === 'TREE') {
+                    // 圣诞树模式 - 螺旋圆锥体
+                    const maxRadius = this.isMobile ? 8 : 12;
+                    const height = this.isMobile ? 18 : 25;
+                    
+                    this.particles.forEach((particle, i) => {
+                        if (particle.isPhoto) return;
+                        
+                        const t = i / this.particles.length;
+                        const radius = maxRadius * (1 - t * 0.8);
+                        const angle = t * 50 * Math.PI;
+                        const y = t * height - height / 2;
+                        
+                        particle.targetPosition.set(
+                            Math.cos(angle) * radius,
+                            y,
+                            Math.sin(angle) * radius
+                        );
+                        particle.scale = this.isMobile ? 0.8 : 1;
+                    });
+                    
+                } else if (mode === 'SCATTER') {
+                    // 散落模式 - 球体分布
+                    const minRadius = this.isMobile ? 6 : 8;
+                    const maxRadius = this.isMobile ? 15 : 20;
+                    
+                    this.particles.forEach((particle) => {
+                        if (particle.isPhoto) return;
+                        
+                        const radius = minRadius + Math.random() * (maxRadius - minRadius);
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        
+                        particle.targetPosition.set(
+                            radius * Math.sin(phi) * Math.cos(theta),
+                            (Math.random() - 0.5) * maxRadius * 1.5,
+                            radius * Math.sin(phi) * Math.sin(theta)
+                        );
+                        particle.scale = 0.8 + Math.random() * 0.4;
+                    });
+                }
+            }
+            
+            setMode(mode) {
+                this.STATE.mode = mode;
+                
+                switch (mode) {
+                    case 'TREE':
+                        this.modeText.textContent = '圣诞树模式';
+                        this.modeSubtext.textContent = '粒子排列为圣诞树形状';
+                        break;
+                    case 'SCATTER':
+                        this.modeText.textContent = '散落模式';
+                        this.modeSubtext.textContent = '粒子随机散布在空中';
+                        break;
+                }
+                
+                this.updateParticlePositions();
+            }
+            
+            setupEventListeners() {
+                // 窗口大小调整
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    
+                    this.renderer.setSize(
+                        window.innerWidth * this.settings.renderScale,
+                        window.innerHeight * this.settings.renderScale
+                    );
+                });
+                
+                // 键盘控制
+                document.addEventListener('keydown', (e) => {
+                    switch (e.key.toLowerCase()) {
+                        case 'h':
+                            // 隐藏/显示UI
+                            this.uiContainer.classList.toggle('ui-hidden');
+                            break;
+                        case ' ':
+                            // 空格键切换模式
+                            e.preventDefault();
+                            const modes = ['TREE', 'SCATTER'];
+                            const currentIndex = modes.indexOf(this.STATE.mode);
+                            const nextIndex = (currentIndex + 1) % modes.length;
+                            this.setMode(modes[nextIndex]);
+                            break;
+                        case 'escape':
+                            // 重置视图
+                            this.resetView();
+                            break;
+                    }
+                });
+                
+                // 文件上传
+                this.uploadBtn.addEventListener('click', () => {
+                    this.fileInput.click();
+                });
+                
+                this.fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        new THREE.TextureLoader().load(ev.target.result, (texture) => {
+                            texture.colorSpace = THREE.SRGBColorSpace;
+                            this.addPhotoToScene(texture);
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    e.target.value = '';
+                });
+                
+                // 移动端触摸控制
+                if (this.isMobile) {
+                    this.setupTouchControls();
+                }
+                
+                // 防止页面滚动
+                document.addEventListener('touchmove', (e) => {
+                    if (e.target.id === 'canvas3d') {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+                
+                // 页面可见性
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.pause();
+                    } else {
+                        this.resume();
+                    }
+                });
+            }
+            
+            setupTouchControls() {
+                const canvas = this.renderer.domElement;
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let lastTapTime = 0;
+                
+                canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                });
+                
+                canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    
+                    if (e.touches.length === 1) {
+                        const touchX = e.touches[0].clientX;
+                        const touchY = e.touches[0].clientY;
+                        
+                        const deltaX = touchX - touchStartX;
+                        const deltaY = touchY - touchStartY;
+                        
+                        // 更新旋转
+                        this.mainGroup.rotation.y += deltaX * 0.01;
+                        this.mainGroup.rotation.x += deltaY * 0.01;
+                        
+                        // 限制X轴旋转
+                        this.mainGroup.rotation.x = Math.max(
+                            -Math.PI / 3,
+                            Math.min(Math.PI / 3, this.mainGroup.rotation.x)
+                        );
+                        
+                        touchStartX = touchX;
+                        touchStartY = touchY;
+                    }
+                });
+                
+                canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    
+                    // 双击检测
+                    const now = Date.now();
+                    if (now - lastTapTime < 300) {
+                        // 双击 - 切换UI显示
+                        this.uiContainer.classList.toggle('ui-hidden');
+                    }
+                    lastTapTime = now;
+                });
+            }
+            
+            resetView() {
+                // 重置相机位置
+                if (this.isMobile) {
+                    this.camera.position.set(0, 3, 35);
+                } else {
+                    this.camera.position.set(0, 2, 50);
+                }
+                
+                // 重置旋转
+                this.mainGroup.rotation.x = 0;
+                this.mainGroup.rotation.y = 0;
+            }
+            
+            pause() {
+                this.STATE.isAnimating = false;
+                this.clock.stop();
+            }
+            
+            resume() {
+                this.STATE.isAnimating = true;
+                this.clock.start();
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                if (!this.STATE.isAnimating) return;
+                
+                const delta = this.clock.getDelta();
+                const time = this.clock.getElapsedTime();
+                
+                // 动画粒子到目标位置
+                const animationSpeed = this.isMobile ? 0.03 : 0.05;
+                
+                this.particles.forEach((particle) => {
+                    // 位置插值
+                    particle.mesh.position.lerp(particle.targetPosition, animationSpeed);
+                    
+                    // 缩放插值
+                    particle.mesh.scale.lerp(
+                        new THREE.Vector3(particle.scale, particle.scale, particle.scale),
+                        0.05
+                    );
+                    
+                    // 散落模式下的自转
+                    if (this.STATE.mode === 'SCATTER' && !particle.isPhoto) {
+                        particle.mesh.rotation.x += particle.rotationSpeed.x;
+                        particle.mesh.rotation.y += particle.rotationSpeed.y;
+                        particle.mesh.rotation.z += particle.rotationSpeed.z;
+                    }
+                    
+                    // 轻微浮动效果
+                    if (!particle.isPhoto) {
+                        particle.mesh.position.y += Math.sin(time + particle.mesh.id) * 0.005;
+                    }
+                });
+                
+                // 渲染
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            showError(message) {
+                document.body.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: #000;
+                        color: #fceea7;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        text-align: center;
+                        padding: 20px;
+                    ">
+                        <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
+                        <p style="margin-bottom: 10px; color: #ff6b6b;">加载错误: ${message}</p>
+                        <p style="margin-bottom: 30px; max-width: 600px;">
+                            请尝试以下解决方案：
+                        </p>
+                        <div style="text-align: left; margin-bottom: 30px;">
+                            <ul style="margin: 15px 0;">
+                                <li>刷新页面重试</li>
+                                <li>检查网络连接</li>
+                                <li>使用最新版Chrome或Safari浏览器</li>
+                                <li>确保WebGL已启用</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <button onclick="location.reload()" style="
+                                background: #d4af37;
+                                color: #000;
+                                border: none;
+                                padding: 12px 24px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                margin: 10px;
+                            ">刷新页面</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            // 检查Three.js是否加载成功
+            if (typeof THREE === 'undefined') {
+                document.body.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: #000;
+                        color: #fceea7;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        text-align: center;
+                        padding: 20px;
+                    ">
+                        <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
+                        <p style="margin-bottom: 30px;">正在加载Three.js库，请稍候...</p>
+                        <div class="spinner" style="
+                            width: 40px;
+                            height: 40px;
+                            border: 3px solid rgba(212, 175, 55, 0.2);
+                            border-top: 3px solid #d4af37;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                            margin-bottom: 20px;
+                        "></div>
+                        <style>
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                        </style>
+                    </div>
+                `;
+                
+                // 5秒后重试
+                setTimeout(() => {
+                    if (typeof THREE === 'undefined') {
+                        location.reload();
+                    }
+                }, 5000);
+            } else {
+                // Three.js已加载，初始化应用
+                try {
+                    const app = new ChristmasTreeApp();
+                    window.app = app;
+                } catch (error) {
+                    console.error('应用初始化失败:', error);
+                    document.body.innerHTML = `
+                        <div style="
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: #000;
+                            color: #fceea7;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            text-align: center;
+                            padding: 20px;
+                        ">
+                            <h1 style="color: #d4af37; margin-bottom: 20px;">🎄 圣诞快乐 🎅</h1>
+                            <p style="margin-bottom: 30px; color: #ff6b6b;">初始化失败: ${error.message}</p>
+                            <button onclick="location.reload()" style="
+                                background: #d4af37;
+                                color: #000;
+                                border: none;
+                                padding: 12px 24px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 16px;
+                            ">刷新页面</button>
+                        </div>
+                    `;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
